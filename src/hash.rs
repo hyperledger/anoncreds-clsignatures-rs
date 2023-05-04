@@ -1,7 +1,7 @@
 use crate::bn::BigNumber;
-use crate::errors::prelude::*;
+use crate::error::Result as ClResult;
 
-pub fn get_hash_as_int(nums: &[Vec<u8>]) -> UrsaCryptoResult<BigNumber> {
+pub fn get_hash_as_int(nums: &[Vec<u8>]) -> ClResult<BigNumber> {
     trace!("Helpers::get_hash_as_int: >>> nums: {:?}", nums);
 
     let hash = BigNumber::from_bytes(&BigNumber::hash_array(nums)?);

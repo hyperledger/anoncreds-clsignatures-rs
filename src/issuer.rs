@@ -1,14 +1,13 @@
-use crate::bn::BigNumber;
-use crate::cl::constants::*;
-use crate::cl::hash::get_hash_as_int;
-use crate::cl::helpers::*;
-use crate::cl::*;
-use crate::errors::prelude::*;
-use crate::pair::*;
-use crate::utils::commitment::get_pedersen_commitment;
-
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::iter::FromIterator;
+
+use crate::amcl::*;
+use crate::bn::BigNumber;
+use crate::constants::*;
+use crate::error::Result as ClResult;
+use crate::hash::get_hash_as_int;
+use crate::helpers::*;
+use crate::types::*;
 
 /// Trust source that provides credentials to prover.
 pub struct Issuer {}
@@ -21,19 +20,19 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::issuer::Issuer;
+    /// use anoncreds_clsignatures::Issuer;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
     /// let _credential_schema = credential_schema_builder.finalize().unwrap();
     /// ```
-    pub fn new_credential_schema_builder() -> UrsaCryptoResult<CredentialSchemaBuilder> {
+    pub fn new_credential_schema_builder() -> ClResult<CredentialSchemaBuilder> {
         let res = CredentialSchemaBuilder::new()?;
         Ok(res)
     }
 
-    pub fn new_non_credential_schema_builder() -> UrsaCryptoResult<NonCredentialSchemaBuilder> {
+    pub fn new_non_credential_schema_builder() -> ClResult<NonCredentialSchemaBuilder> {
         NonCredentialSchemaBuilder::new()
     }
 
@@ -45,7 +44,7 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::issuer::Issuer;
+    /// use anoncreds_clsignatures::Issuer;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -62,7 +61,7 @@ impl Issuer {
         credential_schema: &CredentialSchema,
         non_credential_schema: &NonCredentialSchema,
         support_revocation: bool,
-    ) -> UrsaCryptoResult<(
+    ) -> ClResult<(
         CredentialPublicKey,
         CredentialPrivateKey,
         CredentialKeyCorrectnessProof,
@@ -114,7 +113,7 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::issuer::Issuer;
+    /// use anoncreds_clsignatures::Issuer;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -133,7 +132,7 @@ impl Issuer {
         credential_pub_key: &CredentialPublicKey,
         max_cred_num: u32,
         issuance_by_default: bool,
-    ) -> UrsaCryptoResult<(
+    ) -> ClResult<(
         RevocationKeyPublic,
         RevocationKeyPrivate,
         RevocationRegistry,
@@ -144,10 +143,7 @@ impl Issuer {
 
         let cred_rev_pub_key: &CredentialRevocationPublicKey =
             credential_pub_key.r_key.as_ref().ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    "There are not revocation keys in the credential public key.",
-                )
+                err_msg!("There are no revocation keys in the credential public key.")
             })?;
 
         let (rev_key_pub, rev_key_priv) =
@@ -179,14 +175,14 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::issuer::Issuer;
+    /// use anoncreds_clsignatures::Issuer;
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// credential_values_builder.add_dec_known("name", "1139481716457488690172217916278103335").unwrap();
     /// let _credential_values = credential_values_builder.finalize().unwrap();
     /// ```
-    pub fn new_credential_values_builder() -> UrsaCryptoResult<CredentialValuesBuilder> {
+    pub fn new_credential_values_builder() -> ClResult<CredentialValuesBuilder> {
         let res = CredentialValuesBuilder::new()?;
         Ok(res)
     }
@@ -205,9 +201,9 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -252,7 +248,7 @@ impl Issuer {
         credential_values: &CredentialValues,
         credential_pub_key: &CredentialPublicKey,
         credential_priv_key: &CredentialPrivateKey,
-    ) -> UrsaCryptoResult<(CredentialSignature, SignatureCorrectnessProof)> {
+    ) -> ClResult<(CredentialSignature, SignatureCorrectnessProof)> {
         trace!(
             "Issuer::sign_credential: >>> prover_id: {:?}\n \
              blinded_credential_secrets: {:?}\n \
@@ -331,9 +327,9 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::{new_nonce, SimpleTailsAccessor};
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::{new_nonce, SimpleTailsAccessor};
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -395,7 +391,7 @@ impl Issuer {
         rev_reg: &mut RevocationRegistry,
         rev_key_priv: &RevocationKeyPrivate,
         rev_tails_accessor: &RTA,
-    ) -> UrsaCryptoResult<(
+    ) -> ClResult<(
         CredentialSignature,
         SignatureCorrectnessProof,
         Option<RevocationRegistryDelta>,
@@ -469,9 +465,9 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::{new_nonce, SimpleTailsAccessor};
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::{new_nonce, SimpleTailsAccessor};
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -524,7 +520,7 @@ impl Issuer {
         max_cred_num: u32,
         rev_idx: u32,
         rev_tails_accessor: &RTA,
-    ) -> UrsaCryptoResult<RevocationRegistryDelta>
+    ) -> ClResult<RevocationRegistryDelta>
     where
         RTA: RevocationTailsAccessor,
     {
@@ -568,9 +564,9 @@ impl Issuer {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::{new_nonce, SimpleTailsAccessor};
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::{new_nonce, SimpleTailsAccessor};
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -625,7 +621,7 @@ impl Issuer {
         max_cred_num: u32,
         rev_idx: u32,
         rev_tails_accessor: &RTA,
-    ) -> UrsaCryptoResult<RevocationRegistryDelta>
+    ) -> ClResult<RevocationRegistryDelta>
     where
         RTA: RevocationTailsAccessor,
     {
@@ -671,9 +667,9 @@ impl Issuer {
     /// # Example
     /// ```
     /// use std::collections::BTreeSet;
-    /// use ursa::cl::{new_nonce, SimpleTailsAccessor};
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::{new_nonce, SimpleTailsAccessor};
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("name").unwrap();
@@ -730,7 +726,7 @@ impl Issuer {
         issued: BTreeSet<u32>,
         revoked: BTreeSet<u32>,
         rev_tails_accessor: &RTA,
-    ) -> UrsaCryptoResult<RevocationRegistryDelta>
+    ) -> ClResult<RevocationRegistryDelta>
     where
         RTA: RevocationTailsAccessor,
     {
@@ -774,7 +770,7 @@ impl Issuer {
     fn _new_credential_primary_keys(
         credential_schema: &CredentialSchema,
         non_credential_schema: &NonCredentialSchema,
-    ) -> UrsaCryptoResult<(
+    ) -> ClResult<(
         CredentialPrimaryPublicKey,
         CredentialPrimaryPrivateKey,
         CredentialPrimaryPublicKeyMetadata,
@@ -787,10 +783,7 @@ impl Issuer {
         let mut ctx = BigNumber::new_context()?;
 
         if credential_schema.attrs.is_empty() {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "List of attributes is empty",
-            ));
+            return Err(err_msg!("List of attributes is empty"));
         }
 
         let p_safe = generate_safe_prime(LARGE_PRIME)?;
@@ -831,7 +824,7 @@ impl Issuer {
         Ok((cred_pr_pub_key, cred_pr_priv_key, cred_pr_pub_key_metadata))
     }
 
-    fn _new_credential_revocation_keys() -> UrsaCryptoResult<(
+    fn _new_credential_revocation_keys() -> ClResult<(
         CredentialRevocationPublicKey,
         CredentialRevocationPrivateKey,
     )> {
@@ -878,7 +871,7 @@ impl Issuer {
         cred_pr_pub_key: &CredentialPrimaryPublicKey,
         cred_pr_priv_key: &CredentialPrimaryPrivateKey,
         cred_pr_pub_key_meta: &CredentialPrimaryPublicKeyMetadata,
-    ) -> UrsaCryptoResult<CredentialKeyCorrectnessProof> {
+    ) -> ClResult<CredentialKeyCorrectnessProof> {
         trace!("Issuer::_new_credential_key_correctness_proof: >>> cred_pr_pub_key: {:?}, cred_pr_priv_key: {:?}, cred_pr_pub_key_meta: {:?}",
                cred_pr_pub_key, secret!(cred_pr_priv_key), cred_pr_pub_key_meta);
 
@@ -951,7 +944,7 @@ impl Issuer {
         rev_key_priv: &RevocationKeyPrivate,
         max_cred_num: u32,
         issuance_by_default: bool,
-    ) -> UrsaCryptoResult<RevocationRegistry> {
+    ) -> ClResult<RevocationRegistry> {
         trace!("Issuer::_new_revocation_registry: >>> cred_rev_pub_key: {:?}, rev_key_priv: {:?}, max_cred_num: {:?}, issuance_by_default: {:?}",
                cred_rev_pub_key, secret!(rev_key_priv), max_cred_num, issuance_by_default);
 
@@ -981,7 +974,7 @@ impl Issuer {
     fn _new_revocation_registry_keys(
         cred_rev_pub_key: &CredentialRevocationPublicKey,
         max_cred_num: u32,
-    ) -> UrsaCryptoResult<(RevocationKeyPublic, RevocationKeyPrivate)> {
+    ) -> ClResult<(RevocationKeyPublic, RevocationKeyPrivate)> {
         trace!(
             "Issuer::_new_revocation_registry_keys: >>> cred_rev_pub_key: {:?}, max_cred_num: {:?}",
             cred_rev_pub_key,
@@ -1013,7 +1006,7 @@ impl Issuer {
         blinded_cred_secrets_correctness_proof: &BlindedCredentialSecretsCorrectnessProof,
         nonce: &Nonce,
         cred_pr_pub_key: &CredentialPrimaryPublicKey,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!("Issuer::_check_blinded_credential_secrets_correctness_proof: >>> blinded_cred_secrets: {:?}, blinded_cred_secrets_correctness_proof: {:?},\
          nonce: {:?}, cred_pr_pub_key: {:?}", blinded_cred_secrets, blinded_cred_secrets_correctness_proof, nonce, cred_pr_pub_key);
 
@@ -1040,10 +1033,7 @@ impl Issuer {
                 ),
             |acc, attr| {
                 let pk_r = cred_pr_pub_key.r.get(&attr.clone()).ok_or_else(|| {
-                    err_msg(
-                        UrsaCryptoErrorKind::InvalidStructure,
-                        format!("Value by key '{}' not found in cred_pr_pub_key.r", attr),
-                    )
+                    err_msg!("Value by key '{}' not found in cred_pr_pub_key.r", attr)
                 })?;
                 let m_cap = &blinded_cred_secrets_correctness_proof.m_caps[attr];
                 acc?.mod_mul(
@@ -1089,9 +1079,8 @@ impl Issuer {
         let valid = blinded_cred_secrets_correctness_proof.c.eq(&c);
 
         if !valid {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid BlindedCredentialSecrets correctness proof",
+            return Err(err_msg!(
+                "Invalid BlindedCredentialSecrets correctness proof"
             ));
         }
 
@@ -1101,10 +1090,7 @@ impl Issuer {
     }
 
     // In the anoncreds whitepaper, `credential context` is denoted by `m2`
-    fn _gen_credential_context(
-        prover_id: &str,
-        rev_idx: Option<u32>,
-    ) -> UrsaCryptoResult<BigNumber> {
+    fn _gen_credential_context(prover_id: &str, rev_idx: Option<u32>) -> ClResult<BigNumber> {
         trace!(
             "Issuer::_calc_m2: >>> prover_id: {:?}, rev_idx: {:?}",
             prover_id,
@@ -1136,7 +1122,7 @@ impl Issuer {
         cred_priv_key: &CredentialPrivateKey,
         blinded_credential_secrets: &BlindedCredentialSecrets,
         cred_values: &CredentialValues,
-    ) -> UrsaCryptoResult<(PrimaryCredentialSignature, BigNumber)> {
+    ) -> ClResult<(PrimaryCredentialSignature, BigNumber)> {
         trace!("Issuer::_new_primary_credential: >>> credential_context: {:?}, cred_pub_key: {:?}, cred_priv_key: {:?}, blinded_ms: {:?},\
          cred_values: {:?}", secret!(credential_context), cred_pub_key, secret!(cred_priv_key), blinded_credential_secrets, secret!(cred_values));
 
@@ -1177,7 +1163,7 @@ impl Issuer {
         v: &BigNumber,
         blinded_cred_secrets: &BlindedCredentialSecrets,
         e: &BigNumber,
-    ) -> UrsaCryptoResult<(BigNumber, BigNumber)> {
+    ) -> ClResult<(BigNumber, BigNumber)> {
         trace!(
             "Issuer::_sign_primary_credential: >>> cred_pub_key: {:?}, \
              cred_priv_key: {:?}, \
@@ -1219,12 +1205,10 @@ impl Issuer {
             .iter()
             .filter(|&(_, v)| v.is_known())
         {
-            let pk_r = p_pub_key.r.get(key).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' not found in pk.r", key),
-                )
-            })?;
+            let pk_r = p_pub_key
+                .r
+                .get(key)
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in pk.r", key))?;
 
             rx = pk_r
                 .mod_exp(attr.value(), &p_pub_key.n, Some(&mut context))?
@@ -1253,7 +1237,7 @@ impl Issuer {
         p_cred_signature: &PrimaryCredentialSignature,
         q: &BigNumber,
         nonce: &BigNumber,
-    ) -> UrsaCryptoResult<SignatureCorrectnessProof> {
+    ) -> ClResult<SignatureCorrectnessProof> {
         trace!("Issuer::_new_signature_correctness_proof: >>> p_pub_key: {:?}, p_priv_key: {:?}, p_cred_signature: {:?}, q: {:?}, nonce: {:?}",
                p_pub_key, secret!(p_priv_key), secret!(p_cred_signature), secret!(q), nonce);
 
@@ -1307,7 +1291,7 @@ impl Issuer {
         rev_reg: &mut RevocationRegistry,
         rev_key_priv: &RevocationKeyPrivate,
         rev_tails_accessor: &dyn RevocationTailsAccessor,
-    ) -> UrsaCryptoResult<(
+    ) -> ClResult<(
         NonRevocationCredentialSignature,
         Option<RevocationRegistryDelta>,
     )> {
@@ -1316,27 +1300,18 @@ impl Issuer {
                secret!(rev_idx), secret!(cred_context), blinded_credential_secrets, cred_pub_key, secret!(cred_priv_key), max_cred_num,
                issuance_by_default, rev_reg, secret!(rev_key_priv));
 
-        let ur = blinded_credential_secrets.ur.ok_or_else(|| {
-            err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "No revocation part present in blinded master secret.",
-            )
-        })?;
+        let ur = blinded_credential_secrets
+            .ur
+            .ok_or_else(|| err_msg!("No revocation part present in blinded master secret."))?;
 
         let r_pub_key: &CredentialRevocationPublicKey =
             cred_pub_key.r_key.as_ref().ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    "No revocation part present in credential revocation public key.er secret.",
-                )
+                err_msg!("No revocation part present in credential revocation public key.")
             })?;
 
         let r_priv_key: &CredentialRevocationPrivateKey =
             cred_priv_key.r_key.as_ref().ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    "No revocation part present in credential revocation private key.",
-                )
+                err_msg!("No revocation part present in credential revocation private key.")
             })?;
 
         let vr_prime_prime = GroupOrderElement::new()?;
@@ -1413,11 +1388,11 @@ impl Issuer {
 
 #[cfg(test)]
 mod tests {
-    use self::prover::mocks as prover_mocks;
-    use self::prover::Prover;
     use super::*;
-    use crate::cl::helpers::MockHelper;
-    use crate::cl::issuer::{mocks, Issuer};
+    use crate::helpers::MockHelper;
+    use crate::issuer::{mocks, Issuer};
+    use crate::prover::mocks as prover_mocks;
+    use crate::prover::Prover;
 
     #[test]
     fn generate_context_attribute_works() {
@@ -1567,8 +1542,8 @@ mod tests {
         );
         let blinded_credential_secrets_nonce = mocks::credential_nonce();
         let (blinded_credential_secrets, blinded_credential_secrets_correctness_proof) = (
-            prover::mocks::blinded_credential_secrets(),
-            prover::mocks::blinded_credential_secrets_correctness_proof(),
+            prover_mocks::blinded_credential_secrets(),
+            prover_mocks::blinded_credential_secrets_correctness_proof(),
         );
 
         let credential_issuance_nonce = mocks::credential_issuance_nonce();
@@ -1758,9 +1733,10 @@ mod tests {
     }
 }
 
+#[cfg(test)]
 pub mod mocks {
-    use self::prover::mocks as prover_mocks;
     use super::*;
+    use crate::prover::mocks as prover_mocks;
 
     pub fn m2() -> BigNumber {
         BigNumber::from_dec(

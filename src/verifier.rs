@@ -1,13 +1,13 @@
-use crate::bn::BigNumber;
-use crate::cl::constants::{ITERATION, LARGE_E_START_VALUE};
-use crate::cl::hash::get_hash_as_int;
-use crate::cl::helpers::*;
-use crate::cl::*;
-use crate::errors::prelude::*;
-
 use std::collections::hash_map::Entry;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::iter::FromIterator;
+
+use crate::bn::BigNumber;
+use crate::constants::{ITERATION, LARGE_E_START_VALUE};
+use crate::error::Result as ClResult;
+use crate::hash::get_hash_as_int;
+use crate::helpers::*;
+use crate::types::*;
 
 /// Party that wants to check that prover has some credentials provided by issuer.
 pub struct Verifier {}
@@ -21,14 +21,14 @@ impl Verifier {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let mut sub_proof_request_builder = Verifier::new_sub_proof_request_builder().unwrap();
     /// sub_proof_request_builder.add_revealed_attr("name").unwrap();
     /// sub_proof_request_builder.add_predicate("age", "GE", 18).unwrap();
     /// let _sub_proof_request = sub_proof_request_builder.finalize().unwrap();
     /// ```
-    pub fn new_sub_proof_request_builder() -> UrsaCryptoResult<SubProofRequestBuilder> {
+    pub fn new_sub_proof_request_builder() -> ClResult<SubProofRequestBuilder> {
         let res = SubProofRequestBuilder::new()?;
         Ok(res)
     }
@@ -39,11 +39,11 @@ impl Verifier {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let _proof_verifier = Verifier::new_proof_verifier().unwrap();
     /// ```
-    pub fn new_proof_verifier() -> UrsaCryptoResult<ProofVerifier> {
+    pub fn new_proof_verifier() -> ClResult<ProofVerifier> {
         Ok(ProofVerifier {
             credentials: Vec::new(),
             common_attributes: HashMap::new(),
@@ -61,7 +61,7 @@ impl ProofVerifier {
     /// Attributes that are supposed to have same value across all subproofs.
     /// The verifier first enters attribute names in the hashmap before proof verification starts.
     /// The hashmap is again updated during verification of sub proofs by the blinded value of attributes (`m_hat`s in paper)
-    pub fn add_common_attribute(&mut self, attr_name: &str) -> UrsaCryptoResult<()> {
+    pub fn add_common_attribute(&mut self, attr_name: &str) -> ClResult<()> {
         self.common_attributes.insert(attr_name.to_owned(), None);
         Ok(())
     }
@@ -78,8 +78,8 @@ impl ProofVerifier {
     ///
     /// #Example
     /// ```
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -114,7 +114,7 @@ impl ProofVerifier {
         credential_pub_key: &CredentialPublicKey,
         rev_key_pub: Option<&RevocationKeyPublic>,
         rev_reg: Option<&RevocationRegistry>,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         ProofVerifier::_check_add_sub_proof_request_params_consistency(
             sub_proof_request,
             credential_schema,
@@ -141,10 +141,10 @@ impl ProofVerifier {
     ///
     /// #Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -215,7 +215,7 @@ impl ProofVerifier {
     ///                                      None).unwrap();
     /// assert!(proof_verifier.verify(&proof, &proof_request_nonce).unwrap());
     /// ```
-    pub fn verify(&mut self, proof: &Proof, nonce: &Nonce) -> UrsaCryptoResult<bool> {
+    pub fn verify(&mut self, proof: &Proof, nonce: &Nonce) -> ClResult<bool> {
         trace!(
             "ProofVerifier::verify: >>> proof: {:?}, nonce: {:?}",
             proof,
@@ -267,9 +267,9 @@ impl ProofVerifier {
                             match x {
                                 Some(v) => {
                                     if v != m_hat {
-                                        return Err(err_msg(
-                                            UrsaCryptoErrorKind::ProofRejected,
-                                            format!("Blinded value for common attribute '{}' different across sub proofs", attr_name),
+                                        return Err(err_msg!(
+                                            ProofRejected,
+                                            "Blinded value for common attribute '{}' different across sub proofs", attr_name,
                                         ));
                                     }
                                 }
@@ -284,12 +284,10 @@ impl ProofVerifier {
                     }
                 } else {
                     // `m_hat` for common attribute not present in sub proof
-                    return Err(err_msg(
-                        UrsaCryptoErrorKind::ProofRejected,
-                        format!(
-                            "Blinded value for common attribute '{}' not found in proof.m",
-                            attr_name
-                        ),
+                    return Err(err_msg!(
+                        ProofRejected,
+                        "Blinded value for common attribute '{}' not found in proof.m",
+                        attr_name,
                     ));
                 }
             }
@@ -322,7 +320,7 @@ impl ProofVerifier {
     fn _check_add_sub_proof_request_params_consistency(
         sub_proof_request: &SubProofRequest,
         cred_schema: &CredentialSchema,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!("ProofVerifier::_check_add_sub_proof_request_params_consistency: >>> sub_proof_request: {:?}, cred_schema: {:?}", sub_proof_request, cred_schema);
 
         if sub_proof_request
@@ -331,10 +329,7 @@ impl ProofVerifier {
             .count()
             != 0
         {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Credential doesn't contain requested attribute",
-            ));
+            return Err(err_msg!("Credential doesn't contain requested attribute"));
         }
 
         let predicates_attrs = sub_proof_request
@@ -344,9 +339,8 @@ impl ProofVerifier {
             .collect::<BTreeSet<String>>();
 
         if predicates_attrs.difference(&cred_schema.attrs).count() != 0 {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Credential doesn't contain attribute requested in predicate",
+            return Err(err_msg!(
+                "Credential doesn't contain attribute requested in predicate"
             ));
         }
 
@@ -358,7 +352,7 @@ impl ProofVerifier {
     fn _check_verify_params_consistency(
         credentials: &[VerifiableCredential],
         proof: &Proof,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "ProofVerifier::_check_verify_params_consistency: >>> credentials: {:?}, proof: {:?}",
             credentials,
@@ -366,10 +360,7 @@ impl ProofVerifier {
         );
 
         if proof.proofs.len() != credentials.len() {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::ProofRejected,
-                "Invalid proof length".to_string(),
-            ));
+            return Err(err_msg!(ProofRejected, "Invalid proof length"));
         }
 
         for (proof_for_credential, credential) in proof.proofs.iter().zip(credentials) {
@@ -383,9 +374,9 @@ impl ProofVerifier {
             );
 
             if proof_revealed_attrs != credential.sub_proof_request.revealed_attrs {
-                return Err(err_msg(
-                    UrsaCryptoErrorKind::ProofRejected,
-                    "Proof revealed attributes not correspond to requested attributes",
+                return Err(err_msg!(
+                    ProofRejected,
+                    "Proof revealed attributes not correspond to requested attributes"
                 ));
             }
 
@@ -397,9 +388,9 @@ impl ProofVerifier {
                 .collect::<BTreeSet<Predicate>>();
 
             if proof_predicates != credential.sub_proof_request.predicates {
-                return Err(err_msg(
-                    UrsaCryptoErrorKind::ProofRejected,
-                    "Proof predicates not correspond to requested predicates",
+                return Err(err_msg!(
+                    ProofRejected,
+                    "Proof predicates not correspond to requested predicates"
                 ));
             }
         }
@@ -416,7 +407,7 @@ impl ProofVerifier {
         cred_schema: &CredentialSchema,
         non_cred_schema: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
-    ) -> UrsaCryptoResult<Vec<BigNumber>> {
+    ) -> ClResult<Vec<BigNumber>> {
         trace!("ProofVerifier::_verify_primary_proof: >>> p_pub_key: {:?}, c_hash: {:?}, primary_proof: {:?}, cred_schema: {:?}, sub_proof_request: {:?}",
                p_pub_key, c_hash, primary_proof, cred_schema, sub_proof_request);
 
@@ -450,7 +441,7 @@ impl ProofVerifier {
         cred_schema: &CredentialSchema,
         non_cred_schema: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
-    ) -> UrsaCryptoResult<Vec<BigNumber>> {
+    ) -> ClResult<Vec<BigNumber>> {
         trace!("ProofVerifier::_verify_equality: >>> p_pub_key: {:?}, proof: {:?}, c_hash: {:?}, cred_schema: {:?}, sub_proof_request: {:?}",
                p_pub_key, proof, c_hash, cred_schema, sub_proof_request);
 
@@ -481,10 +472,7 @@ impl ProofVerifier {
 
         for (attr, encoded_value) in &proof.revealed_attrs {
             let cur_r = p_pub_key.r.get(attr).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::ProofRejected,
-                    format!("Value by key '{}' not found in pk.r", attr),
-                )
+                err_msg!(ProofRejected, "Value by key '{}' not found in pk.r", attr)
             })?;
 
             rar = cur_r
@@ -509,7 +497,7 @@ impl ProofVerifier {
         p_pub_key: &CredentialPrimaryPublicKey,
         proof: &PrimaryPredicateInequalityProof,
         c_hash: &BigNumber,
-    ) -> UrsaCryptoResult<Vec<BigNumber>> {
+    ) -> ClResult<Vec<BigNumber>> {
         trace!(
             "ProofVerifier::_verify_ne_predicate: >>> p_pub_key: {:?}, proof: {:?}, c_hash: {:?}",
             p_pub_key,
@@ -530,10 +518,7 @@ impl ProofVerifier {
 
         for i in 0..ITERATION {
             let cur_t = proof.t.get(&i.to_string()).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::ProofRejected,
-                    format!("Value by key '{}' not found in proof.t", i),
-                )
+                err_msg!(ProofRejected, "Value by key '{}' not found in proof.t", i)
             })?;
 
             tau_list[i] = cur_t
@@ -542,12 +527,10 @@ impl ProofVerifier {
                 .mod_mul(&tau_list[i], &p_pub_key.n, Some(&mut ctx))?;
         }
 
-        let delta = proof.t.get("DELTA").ok_or_else(|| {
-            err_msg(
-                UrsaCryptoErrorKind::ProofRejected,
-                format!("Value by key '{}' not found in proof.t", "DELTA"),
-            )
-        })?;
+        let delta = proof
+            .t
+            .get("DELTA")
+            .ok_or_else(|| err_msg!(ProofRejected, "Value by key 'DELTA' not found in proof.t"))?;
 
         let delta_prime = if proof.predicate.is_less() {
             delta.inverse(&p_pub_key.n, Some(&mut ctx))?
@@ -586,7 +569,7 @@ impl ProofVerifier {
         rev_key_pub: &RevocationKeyPublic,
         c_hash: &BigNumber,
         proof: &NonRevocProof,
-    ) -> UrsaCryptoResult<NonRevocProofTauList> {
+    ) -> ClResult<NonRevocProofTauList> {
         trace!("ProofVerifier::_verify_non_revocation_proof: >>> r_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}, c_hash: {:?}",
                r_pub_key, rev_reg, rev_key_pub, c_hash);
 
@@ -644,10 +627,10 @@ impl ProofVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cl::helpers::MockHelper;
-    use crate::cl::issuer;
-    use crate::cl::prover;
-    use crate::cl::prover::mocks::*;
+    use crate::helpers::MockHelper;
+    use crate::issuer;
+    use crate::prover;
+    use crate::prover::mocks::*;
 
     #[test]
     fn sub_proof_request_builder_works() {

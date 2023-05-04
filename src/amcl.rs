@@ -1,29 +1,27 @@
-use crate::errors::prelude::*;
+#![allow(unused)]
 
 use amcl::bn254::big::BIG;
-
-use amcl::bn254::rom::{
-    CURVE_GX, CURVE_GY, CURVE_ORDER, CURVE_PXA, CURVE_PXB, CURVE_PYA, CURVE_PYB, MODBYTES,
-};
-
 use amcl::bn254::ecp::ECP;
 use amcl::bn254::ecp2::ECP2;
 use amcl::bn254::fp12::FP12;
 use amcl::bn254::fp2::FP2;
 use amcl::bn254::pair::{ate, ate2, fexp, g1mul, g2mul, gtpow};
+use amcl::bn254::rom::{
+    CURVE_GX, CURVE_GY, CURVE_ORDER, CURVE_PXA, CURVE_PXB, CURVE_PYA, CURVE_PYB, MODBYTES,
+};
 use amcl::rand::RAND;
 
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(feature = "serde")]
-use std::fmt;
 
 use rand::prelude::*;
 
 #[cfg(test)]
 use std::cell::RefCell;
+
+use crate::error::Result as ClResult;
 
 #[cfg(test)]
 thread_local! {
@@ -49,12 +47,12 @@ impl PairMocksHelper {
 }
 
 #[cfg(not(test))]
-fn random_mod_order() -> UrsaCryptoResult<BIG> {
+fn random_mod_order() -> ClResult<BIG> {
     _random_mod_order()
 }
 
 #[cfg(test)]
-fn random_mod_order() -> UrsaCryptoResult<BIG> {
+fn random_mod_order() -> ClResult<BIG> {
     if PairMocksHelper::is_injected() {
         Ok(BIG::from_hex(
             "22EB5716FB01F2122DE924466542B923D8C96F16C9B5FE2C00B7D7DC1499EA50".to_string(),
@@ -64,7 +62,7 @@ fn random_mod_order() -> UrsaCryptoResult<BIG> {
     }
 }
 
-fn _random_mod_order() -> UrsaCryptoResult<BIG> {
+fn _random_mod_order() -> ClResult<BIG> {
     let entropy_bytes = 128;
     let mut seed = vec![0; entropy_bytes];
     let mut rng = rand::thread_rng();
@@ -85,7 +83,7 @@ impl PointG1 {
     pub const BYTES_REPR_SIZE: usize = MODBYTES * 4;
 
     /// Creates new random PointG1
-    pub fn new() -> UrsaCryptoResult<PointG1> {
+    pub fn new() -> ClResult<PointG1> {
         // generate random point from the group G1
         let point_x = BIG::new_ints(&CURVE_GX);
         let point_y = BIG::new_ints(&CURVE_GY);
@@ -97,19 +95,19 @@ impl PointG1 {
     }
 
     /// Creates new infinity PointG1
-    pub fn new_inf() -> UrsaCryptoResult<PointG1> {
+    pub fn new_inf() -> ClResult<PointG1> {
         let mut r = ECP::new();
         r.inf();
         Ok(PointG1 { point: r })
     }
 
     /// Checks infinity
-    pub fn is_inf(&self) -> UrsaCryptoResult<bool> {
+    pub fn is_inf(&self) -> ClResult<bool> {
         Ok(self.point.is_infinity())
     }
 
     /// PointG1 ^ GroupOrderElement
-    pub fn mul(&self, e: &GroupOrderElement) -> UrsaCryptoResult<PointG1> {
+    pub fn mul(&self, e: &GroupOrderElement) -> ClResult<PointG1> {
         let r = self.point;
         let mut bn = e.bn;
         Ok(PointG1 {
@@ -118,7 +116,7 @@ impl PointG1 {
     }
 
     /// PointG1 * PointG1
-    pub fn add(&self, q: &PointG1) -> UrsaCryptoResult<PointG1> {
+    pub fn add(&self, q: &PointG1) -> ClResult<PointG1> {
         let mut r = self.point;
         let point = q.point;
         r.add(&point);
@@ -126,7 +124,7 @@ impl PointG1 {
     }
 
     /// PointG1 / PointG1
-    pub fn sub(&self, q: &PointG1) -> UrsaCryptoResult<PointG1> {
+    pub fn sub(&self, q: &PointG1) -> ClResult<PointG1> {
         let mut r = self.point;
         let point = q.point;
         r.sub(&point);
@@ -134,41 +132,39 @@ impl PointG1 {
     }
 
     /// 1 / PointG1
-    pub fn neg(&self) -> UrsaCryptoResult<PointG1> {
+    pub fn neg(&self) -> ClResult<PointG1> {
         let mut r = self.point;
         r.neg();
         Ok(PointG1 { point: r })
     }
 
-    pub fn to_string(&self) -> UrsaCryptoResult<String> {
+    pub fn to_string(&self) -> ClResult<String> {
         Ok(self.point.to_hex())
     }
 
-    pub fn from_string(str: &str) -> UrsaCryptoResult<PointG1> {
+    pub fn from_string(str: &str) -> ClResult<PointG1> {
         Ok(PointG1 {
             point: ECP::from_hex(str.to_string()),
         })
     }
 
-    pub fn to_bytes(&self) -> UrsaCryptoResult<Vec<u8>> {
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
         self.point.tobytes(&mut vec, false);
         Ok(vec)
     }
 
-    pub fn from_bytes(b: &[u8]) -> UrsaCryptoResult<PointG1> {
+    pub fn from_bytes(b: &[u8]) -> ClResult<PointG1> {
         if b.len() != Self::BYTES_REPR_SIZE {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid len of bytes representation for PointG1",
-            ));
+            Err(err_msg!("Invalid byte length for PointG1"))
+        } else {
+            Ok(PointG1 {
+                point: ECP::frombytes(b),
+            })
         }
-        Ok(PointG1 {
-            point: ECP::frombytes(b),
-        })
     }
 
-    pub fn from_hash(hash: &[u8]) -> UrsaCryptoResult<PointG1> {
+    pub fn from_hash(hash: &[u8]) -> ClResult<PointG1> {
         let mut el = GroupOrderElement::from_bytes(hash)?;
         let mut point = ECP::new_big(&el.bn);
 
@@ -182,7 +178,7 @@ impl PointG1 {
 }
 
 impl Debug for PointG1 {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "PointG1 {{ point: {} }}", self.point.to_hex())
     }
 }
@@ -211,7 +207,7 @@ impl<'a> Deserialize<'a> for PointG1 {
         impl<'a> Visitor<'a> for PointG1Visitor {
             type Value = PointG1;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("expected PointG1")
             }
 
@@ -236,7 +232,7 @@ impl PointG2 {
     pub const BYTES_REPR_SIZE: usize = MODBYTES * 4;
 
     /// Creates new random PointG2
-    pub fn new() -> UrsaCryptoResult<PointG2> {
+    pub fn new() -> ClResult<PointG2> {
         let point_xa = BIG::new_ints(&CURVE_PXA);
         let point_xb = BIG::new_ints(&CURVE_PXB);
         let point_ya = BIG::new_ints(&CURVE_PYA);
@@ -253,7 +249,7 @@ impl PointG2 {
     }
 
     /// Creates new infinity PointG2
-    pub fn new_inf() -> UrsaCryptoResult<PointG2> {
+    pub fn new_inf() -> ClResult<PointG2> {
         let mut point = ECP2::new();
         point.inf();
 
@@ -261,7 +257,7 @@ impl PointG2 {
     }
 
     /// PointG2 * PointG2
-    pub fn add(&self, q: &PointG2) -> UrsaCryptoResult<PointG2> {
+    pub fn add(&self, q: &PointG2) -> ClResult<PointG2> {
         let mut r = self.point;
         let point = q.point;
         r.add(&point);
@@ -270,7 +266,7 @@ impl PointG2 {
     }
 
     /// PointG2 / PointG2
-    pub fn sub(&self, q: &PointG2) -> UrsaCryptoResult<PointG2> {
+    pub fn sub(&self, q: &PointG2) -> ClResult<PointG2> {
         let mut r = self.point;
         let point = q.point;
         r.sub(&point);
@@ -278,14 +274,14 @@ impl PointG2 {
         Ok(PointG2 { point: r })
     }
 
-    pub fn neg(&self) -> UrsaCryptoResult<PointG2> {
+    pub fn neg(&self) -> ClResult<PointG2> {
         let mut r = self.point;
         r.neg();
         Ok(PointG2 { point: r })
     }
 
     /// PointG2 ^ GroupOrderElement
-    pub fn mul(&self, e: &GroupOrderElement) -> UrsaCryptoResult<PointG2> {
+    pub fn mul(&self, e: &GroupOrderElement) -> ClResult<PointG2> {
         let r = self.point;
         let bn = e.bn;
         Ok(PointG2 {
@@ -293,37 +289,35 @@ impl PointG2 {
         })
     }
 
-    pub fn to_string(&self) -> UrsaCryptoResult<String> {
+    pub fn to_string(&self) -> ClResult<String> {
         Ok(self.point.to_hex())
     }
 
-    pub fn from_string(str: &str) -> UrsaCryptoResult<PointG2> {
+    pub fn from_string(str: &str) -> ClResult<PointG2> {
         Ok(PointG2 {
             point: ECP2::from_hex(str.to_string()),
         })
     }
 
-    pub fn to_bytes(&self) -> UrsaCryptoResult<Vec<u8>> {
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
         self.point.tobytes(&mut vec);
         Ok(vec)
     }
 
-    pub fn from_bytes(b: &[u8]) -> UrsaCryptoResult<PointG2> {
+    pub fn from_bytes(b: &[u8]) -> ClResult<PointG2> {
         if b.len() != Self::BYTES_REPR_SIZE {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid len of bytes representation for PoingG2",
-            ));
+            Err(err_msg!("Invalid byte length for PointG2"))
+        } else {
+            Ok(PointG2 {
+                point: ECP2::frombytes(b),
+            })
         }
-        Ok(PointG2 {
-            point: ECP2::frombytes(b),
-        })
     }
 }
 
 impl Debug for PointG2 {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "PointG2 {{ point: {} }}", self.point.to_hex())
     }
 }
@@ -352,7 +346,7 @@ impl<'a> Deserialize<'a> for PointG2 {
         impl<'a> Visitor<'a> for PointG2Visitor {
             type Value = PointG2;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("expected PointG2")
             }
 
@@ -376,24 +370,17 @@ pub struct GroupOrderElement {
 impl GroupOrderElement {
     pub const BYTES_REPR_SIZE: usize = MODBYTES;
 
-    pub fn new() -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn new() -> ClResult<GroupOrderElement> {
         // returns random element in 0, ..., GroupOrder-1
         Ok(GroupOrderElement {
             bn: random_mod_order()?,
         })
     }
 
-    pub fn new_from_seed(seed: &[u8]) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn new_from_seed(seed: &[u8]) -> ClResult<GroupOrderElement> {
         // returns random element in 0, ..., GroupOrder-1
         if seed.len() != MODBYTES {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                format!(
-                    "Invalid len of seed: expected {}, actual {}",
-                    MODBYTES,
-                    seed.len()
-                ),
-            ));
+            return Err(err_msg!("Invalid byte length for seed"));
         }
         let mut rng = RAND::new();
         rng.clean();
@@ -405,7 +392,7 @@ impl GroupOrderElement {
     }
 
     /// (GroupOrderElement ^ GroupOrderElement) mod GroupOrder
-    pub fn pow_mod(&self, e: &GroupOrderElement) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn pow_mod(&self, e: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let mut base = self.bn;
         let pow = e.bn;
         Ok(GroupOrderElement {
@@ -414,7 +401,7 @@ impl GroupOrderElement {
     }
 
     /// (GroupOrderElement + GroupOrderElement) mod GroupOrder
-    pub fn add_mod(&self, r: &GroupOrderElement) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn add_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let mut sum = self.bn;
         sum.add(&r.bn);
         sum.rmod(&BIG::new_ints(&CURVE_ORDER));
@@ -422,7 +409,7 @@ impl GroupOrderElement {
     }
 
     /// (GroupOrderElement - GroupOrderElement) mod GroupOrder
-    pub fn sub_mod(&self, r: &GroupOrderElement) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn sub_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         //need to use modneg if sub is negative
         let mut diff = self.bn;
         diff.sub(&r.bn);
@@ -439,7 +426,7 @@ impl GroupOrderElement {
     }
 
     /// (GroupOrderElement * GroupOrderElement) mod GroupOrder
-    pub fn mul_mod(&self, r: &GroupOrderElement) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn mul_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let base = self.bn;
         let r = r.bn;
         Ok(GroupOrderElement {
@@ -448,7 +435,7 @@ impl GroupOrderElement {
     }
 
     /// 1 / GroupOrderElement
-    pub fn inverse(&self) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn inverse(&self) -> ClResult<GroupOrderElement> {
         let mut bn = self.bn;
         bn.invmodp(&BIG::new_ints(&CURVE_ORDER));
 
@@ -456,36 +443,33 @@ impl GroupOrderElement {
     }
 
     /// - GroupOrderElement mod GroupOrder
-    pub fn mod_neg(&self) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn mod_neg(&self) -> ClResult<GroupOrderElement> {
         let mut r = self.bn;
         r = BIG::modneg(&r, &BIG::new_ints(&CURVE_ORDER));
         Ok(GroupOrderElement { bn: r })
     }
 
-    pub fn to_string(&self) -> UrsaCryptoResult<String> {
+    pub fn to_string(&self) -> ClResult<String> {
         let mut bn = self.bn;
         Ok(bn.to_hex())
     }
 
-    pub fn from_string(str: &str) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn from_string(str: &str) -> ClResult<GroupOrderElement> {
         Ok(GroupOrderElement {
             bn: BIG::from_hex(str.to_string()),
         })
     }
 
-    pub fn to_bytes(&self) -> UrsaCryptoResult<Vec<u8>> {
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         let mut bn = self.bn;
         let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
         bn.tobytes(&mut vec);
         Ok(vec)
     }
 
-    pub fn from_bytes(b: &[u8]) -> UrsaCryptoResult<GroupOrderElement> {
+    pub fn from_bytes(b: &[u8]) -> ClResult<GroupOrderElement> {
         if b.len() > Self::BYTES_REPR_SIZE {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid len of bytes representation for GroupOrderElement",
-            ));
+            return Err(err_msg!("Invalid byte length for GroupOrderElement"));
         }
         let mut vec = b.to_vec();
         let len = vec.len();
@@ -504,7 +488,7 @@ impl GroupOrderElement {
 }
 
 impl Debug for GroupOrderElement {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut bn = self.bn;
         write!(f, "GroupOrderElement {{ bn: {} }}", bn.to_hex())
     }
@@ -534,7 +518,7 @@ impl<'a> Deserialize<'a> for GroupOrderElement {
         impl<'a> Visitor<'a> for GroupOrderElementVisitor {
             type Value = GroupOrderElement;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("expected GroupOrderElement")
             }
 
@@ -558,7 +542,7 @@ pub struct Pair {
 impl Pair {
     pub const BYTES_REPR_SIZE: usize = MODBYTES * 16;
     /// e(PointG1, PointG2)
-    pub fn pair(p: &PointG1, q: &PointG2) -> UrsaCryptoResult<Self> {
+    pub fn pair(p: &PointG1, q: &PointG2) -> ClResult<Self> {
         let mut result = fexp(&ate(&q.point, &p.point));
         result.reduce();
 
@@ -566,7 +550,7 @@ impl Pair {
     }
 
     /// e(PointG1, PointG2, PointG1_1, PointG2_1)
-    pub fn pair2(p: &PointG1, q: &PointG2, r: &PointG1, s: &PointG2) -> UrsaCryptoResult<Self> {
+    pub fn pair2(p: &PointG1, q: &PointG2, r: &PointG1, s: &PointG2) -> ClResult<Self> {
         let mut result = fexp(&ate2(&q.point, &p.point, &s.point, &r.point));
         result.reduce();
 
@@ -574,7 +558,7 @@ impl Pair {
     }
 
     /// e() * e()
-    pub fn mul(&self, b: &Pair) -> UrsaCryptoResult<Pair> {
+    pub fn mul(&self, b: &Pair) -> ClResult<Pair> {
         let mut base = self.pair;
         base.mul(&b.pair);
         base.reduce();
@@ -582,34 +566,34 @@ impl Pair {
     }
 
     /// e() ^ GroupOrderElement
-    pub fn pow(&self, b: &GroupOrderElement) -> UrsaCryptoResult<Pair> {
+    pub fn pow(&self, b: &GroupOrderElement) -> ClResult<Pair> {
         Ok(Pair {
             pair: gtpow(&self.pair, &b.bn),
         })
     }
 
     /// 1 / e()
-    pub fn inverse(&self) -> UrsaCryptoResult<Pair> {
+    pub fn inverse(&self) -> ClResult<Pair> {
         let mut r = self.pair;
         r.conj();
         Ok(Pair { pair: r })
     }
 
-    pub fn is_unity(&self) -> UrsaCryptoResult<bool> {
+    pub fn is_unity(&self) -> ClResult<bool> {
         Ok(self.pair.isunity())
     }
 
-    pub fn to_string(&self) -> UrsaCryptoResult<String> {
+    pub fn to_string(&self) -> ClResult<String> {
         Ok(self.pair.to_hex())
     }
 
-    pub fn from_string(str: &str) -> UrsaCryptoResult<Pair> {
+    pub fn from_string(str: &str) -> ClResult<Pair> {
         Ok(Pair {
             pair: FP12::from_hex(str.to_string()),
         })
     }
 
-    pub fn to_bytes(&self) -> UrsaCryptoResult<Vec<u8>> {
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         let mut r = self.pair;
         let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
         r.tobytes(&mut vec);
@@ -618,7 +602,7 @@ impl Pair {
 }
 
 impl Debug for Pair {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Pair {{ pair: {} }}", self.pair.to_hex())
     }
 }
@@ -647,7 +631,7 @@ impl<'a> Deserialize<'a> for Pair {
         impl<'a> Visitor<'a> for PairVisitor {
             type Value = Pair;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("expected Pair")
             }
 
@@ -669,8 +653,8 @@ mod tests {
 
     #[test]
     fn group_order_element_new_from_seed_works_for_invalid_seed_len() {
-        let err = GroupOrderElement::new_from_seed(&[0, 1, 2]).unwrap_err();
-        assert_eq!(err.kind(), UrsaCryptoErrorKind::InvalidStructure);
+        let res = GroupOrderElement::new_from_seed(&[0, 1, 2]);
+        assert!(res.is_err());
     }
 
     #[test]
@@ -730,8 +714,6 @@ mod tests {
 #[cfg(test)]
 mod serialization_tests {
     use super::*;
-
-    extern crate serde_json;
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
     struct TestGroupOrderElementStructure {

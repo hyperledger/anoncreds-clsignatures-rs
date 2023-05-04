@@ -1,15 +1,13 @@
-use super::helpers::*;
-use crate::bn::BigNumber;
-use crate::cl::constants::*;
-use crate::cl::hash::get_hash_as_int;
-use crate::cl::*;
-use crate::errors::prelude::*;
-use crate::pair::*;
-use crate::utils::commitment::get_pedersen_commitment;
-
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::iter::FromIterator;
+
+use crate::amcl::*;
+use crate::bn::BigNumber;
+use crate::constants::*;
+use crate::error::Result as ClResult;
+use crate::hash::get_hash_as_int;
+use crate::helpers::*;
+use crate::types::*;
 
 /// Credentials owner that can proof and partially disclose the credentials to verifier.
 pub struct Prover {}
@@ -19,11 +17,11 @@ impl Prover {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let _master_secret = Prover::new_master_secret().unwrap();
     /// ```
-    pub fn new_master_secret() -> UrsaCryptoResult<MasterSecret> {
+    pub fn new_master_secret() -> ClResult<MasterSecret> {
         Ok(MasterSecret {
             ms: bn_rand(LARGE_MASTER_SECRET)?,
         })
@@ -39,9 +37,9 @@ impl Prover {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -71,14 +69,11 @@ impl Prover {
         credential_key_correctness_proof: &CredentialKeyCorrectnessProof,
         credential_values: &CredentialValues,
         credential_nonce: &Nonce,
-    ) -> Result<
-        (
-            BlindedCredentialSecrets,
-            CredentialSecretsBlindingFactors,
-            BlindedCredentialSecretsCorrectnessProof,
-        ),
-        UrsaCryptoError,
-    > {
+    ) -> ClResult<(
+        BlindedCredentialSecrets,
+        CredentialSecretsBlindingFactors,
+        BlindedCredentialSecretsCorrectnessProof,
+    )> {
         trace!(
             "Prover::blind_credential_secrets: >>> credential_pub_key: {:?}, \
              credential_key_correctness_proof: {:?}, \
@@ -158,9 +153,9 @@ impl Prover {
     ///
     /// # Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -213,7 +208,7 @@ impl Prover {
         rev_key_pub: Option<&RevocationKeyPublic>,
         rev_reg: Option<&RevocationRegistry>,
         witness: Option<&Witness>,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "Prover::process_credential_signature: >>> credential_signature: {:?}, \
              credential_values: {:?}, \
@@ -283,10 +278,10 @@ impl Prover {
     /// The purpose of proof builder is building of proof entity according to the given request .
     /// # Example
     /// ```
-    /// use ursa::cl::prover::Prover;
+    /// use anoncreds_clsignatures::Prover;
     ///
     /// let _proof_builder = Prover::new_proof_builder();
-    pub fn new_proof_builder() -> UrsaCryptoResult<ProofBuilder> {
+    pub fn new_proof_builder() -> ClResult<ProofBuilder> {
         Ok(ProofBuilder {
             common_attributes: HashMap::new(),
             init_proofs: Vec::new(),
@@ -299,14 +294,14 @@ impl Prover {
     pub fn check_credential_key_correctness_proof(
         pr_pub_key: &CredentialPrimaryPublicKey,
         key_correctness_proof: &CredentialKeyCorrectnessProof,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         Prover::_check_credential_key_correctness_proof(pr_pub_key, key_correctness_proof)
     }
 
     fn _check_credential_key_correctness_proof(
         pr_pub_key: &CredentialPrimaryPublicKey,
         key_correctness_proof: &CredentialKeyCorrectnessProof,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!("Prover::_check_credential_key_correctness_proof: >>> pr_pub_key: {:?}, key_correctness_proof: {:?}",
                pr_pub_key,
                key_correctness_proof
@@ -324,19 +319,19 @@ impl Prover {
                 //so for now if this is the only missing key, its okay
                 //In the future this "if" statement should be removed
                 if r_key != "master_secret" {
-                    return Err(err_msg(
-                        UrsaCryptoErrorKind::InvalidStructure,
-                        format!(
-                            "Value by key '{}' not found in key_correctness_proof.xr_cap",
-                            r_key
-                        ),
+                    return Err(err_msg!(
+                        "Value by key '{}' not found in key_correctness_proof.xr_cap",
+                        r_key
                     ));
                 }
             }
         }
         for correctness_name in &correctness_names {
             if !pr_pub_key.r.contains_key(correctness_name.as_str()) {
-                return Err(err_msg(UrsaCryptoErrorKind::InvalidStructure, format!("Public key doesn't contains item for {} key in key_correctness_proof.xr_cap", correctness_name)));
+                return Err(err_msg!(
+                    "Public key doesn't contains item for {} key in key_correctness_proof.xr_cap",
+                    correctness_name
+                ));
             }
         }
 
@@ -386,10 +381,7 @@ impl Prover {
         let valid = key_correctness_proof.c.eq(&c);
 
         if !valid {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid Credential key correctness proof",
-            ));
+            return Err(err_msg!("Invalid Credential key correctness proof"));
         }
 
         trace!("Prover::_check_credential_key_correctness_proof: <<<");
@@ -400,7 +392,7 @@ impl Prover {
     fn _generate_blinded_primary_credential_secrets_factors(
         p_pub_key: &CredentialPrimaryPublicKey,
         credential_values: &CredentialValues,
-    ) -> UrsaCryptoResult<PrimaryBlindedCredentialSecretsFactors> {
+    ) -> ClResult<PrimaryBlindedCredentialSecretsFactors> {
         trace!("Prover::_generate_blinded_primary_credential_secrets_factors: >>> p_pub_key: {:?}, credential_values: {:?}",
                p_pub_key,
                credential_values
@@ -419,12 +411,10 @@ impl Prover {
         let u = hidden_attributes.iter().fold(
             p_pub_key.s.mod_exp(&v_prime, &p_pub_key.n, Some(&mut ctx)),
             |acc, attr| {
-                let pk_r = p_pub_key.r.get(&attr.clone()).ok_or_else(|| {
-                    err_msg(
-                        UrsaCryptoErrorKind::InvalidStructure,
-                        format!("Value by key '{}' not found in pk.r", attr),
-                    )
-                })?;
+                let pk_r = p_pub_key
+                    .r
+                    .get(&attr.clone())
+                    .ok_or_else(|| err_msg!("Value by key '{}' not found in pk.r", attr))?;
                 let cred_value = &credential_values.attrs_values[attr];
                 acc?.mod_mul(
                     &pk_r.mod_exp(cred_value.value(), &p_pub_key.n, Some(&mut ctx))?,
@@ -474,7 +464,7 @@ impl Prover {
 
     fn _generate_blinded_revocation_credential_secrets(
         r_pub_key: &CredentialRevocationPublicKey,
-    ) -> UrsaCryptoResult<RevocationBlindedCredentialSecretsFactors> {
+    ) -> ClResult<RevocationBlindedCredentialSecretsFactors> {
         trace!(
             "Prover::_generate_blinded_revocation_credential_secrets: >>> r_pub_key: {:?}",
             r_pub_key
@@ -496,7 +486,7 @@ impl Prover {
         blinded_primary_credential_secrets: &PrimaryBlindedCredentialSecretsFactors,
         nonce: &BigNumber,
         credential_values: &CredentialValues,
-    ) -> UrsaCryptoResult<BlindedCredentialSecretsCorrectnessProof> {
+    ) -> ClResult<BlindedCredentialSecretsCorrectnessProof> {
         trace!(
             "Prover::_new_blinded_credential_secrets_correctness_proof: >>> p_pub_key: {:?}, \
              blinded_primary_credential_secrets: {:?}, \
@@ -526,12 +516,10 @@ impl Prover {
             .filter(|&(_, v)| v.is_hidden() || v.is_commitment())
         {
             let m_tilde = bn_rand(LARGE_MTILDE)?;
-            let pk_r = p_pub_key.r.get(attr).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' not found in pk.r", attr),
-                )
-            })?;
+            let pk_r = p_pub_key
+                .r
+                .get(attr)
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in pk.r", attr))?;
 
             match *cred_value {
                 CredentialValue::Hidden { .. } => {
@@ -557,7 +545,7 @@ impl Prover {
                     let ca_value = blinded_primary_credential_secrets.committed_attributes
                         .get(attr)
                         .ok_or_else(||
-                            err_msg(UrsaCryptoErrorKind::InvalidStructure, format!("Value by key '{}' not found in primary_blinded_cred_secrets.committed_attributes", attr)))?;
+                            err_msg!("Value by key '{}' not found in primary_blinded_cred_secrets.committed_attributes", attr))?;
                     values.extend_from_slice(&ca_value.to_bytes()?);
                 }
                 _ => (),
@@ -580,12 +568,9 @@ impl Prover {
 
         for (attr, m_tilde) in &m_tildes {
             let ca = credential_values.attrs_values.get(attr).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!(
-                        "Value by key '{}' not found in cred_values.committed_attributes",
-                        attr
-                    ),
+                err_msg!(
+                    "Value by key '{}' not found in cred_values.committed_attributes",
+                    attr
                 )
             })?;
 
@@ -624,7 +609,7 @@ impl Prover {
     fn _process_primary_credential(
         p_cred: &mut PrimaryCredentialSignature,
         v_prime: &BigNumber,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "Prover::_process_primary_credential: >>> p_cred: {:?}, v_prime: {:?}",
             p_cred,
@@ -645,7 +630,7 @@ impl Prover {
         rev_key_pub: &RevocationKeyPublic,
         rev_reg: &RevocationRegistry,
         witness: &Witness,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!("Prover::_process_non_revocation_credential: >>> r_cred: {:?}, vr_prime: {:?}, cred_rev_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}",
                r_cred, vr_prime, cred_rev_pub_key, rev_reg, rev_key_pub);
 
@@ -671,7 +656,7 @@ impl Prover {
         signature_correctness_proof: &SignatureCorrectnessProof,
         p_pub_key: &CredentialPrimaryPublicKey,
         nonce: &Nonce,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "Prover::_check_signature_correctness_proof: >>> p_cred_sig: {:?}, \
              cred_values: {:?}, \
@@ -688,19 +673,13 @@ impl Prover {
         let mut ctx = BigNumber::new_context()?;
 
         if !p_cred_sig.e.is_prime(Some(&mut ctx))? {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid Signature correctness proof",
-            ));
+            return Err(err_msg!("Invalid Signature correctness proof"));
         }
 
         if let Some((ref attr, _)) = cred_values.attrs_values.iter().find(|(attr, value)| {
             (value.is_known() || value.is_hidden()) && !p_pub_key.r.contains_key(attr.as_str())
         }) {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                format!("Value by key '{}' not found in public key", attr),
-            ));
+            return Err(err_msg!("Value by key '{}' not found in public key", attr));
         }
 
         let rx = cred_values
@@ -738,10 +717,7 @@ impl Prover {
             .mod_exp(&p_cred_sig.e, &p_pub_key.n, Some(&mut ctx))?;
 
         if !q.eq(&expected_q) {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid Signature correctness proof q != q'",
-            ));
+            return Err(err_msg!("Invalid Signature correctness proof q != q'"));
         }
 
         let degree = signature_correctness_proof.c.add(
@@ -765,10 +741,7 @@ impl Prover {
         let valid = signature_correctness_proof.c.eq(&c);
 
         if !valid {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Invalid Signature correctness proof c != c'",
-            ));
+            return Err(err_msg!("Invalid Signature correctness proof c != c'"));
         }
 
         trace!("Prover::_check_signature_correctness_proof: <<<");
@@ -783,7 +756,7 @@ impl Prover {
         rev_reg: &RevocationRegistry,
         witness: &Witness,
         r_cnxt_m2: &BigNumber,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!("Prover::_test_witness_signature: >>> r_cred: {:?}, cred_rev_pub_key: {:?}, rev_key_pub: {:?}, rev_reg: {:?}, r_cnxt_m2: {:?}",
                r_cred, cred_rev_pub_key, rev_key_pub, rev_reg, r_cnxt_m2);
 
@@ -791,10 +764,7 @@ impl Prover {
             .mul(&Pair::pair(&cred_rev_pub_key.g, &witness.omega)?.inverse()?)?;
 
         if z_calc != rev_key_pub.z {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Issuer is sending incorrect data",
-            ));
+            return Err(err_msg!("Issuer is sending incorrect data"));
         }
         let pair_gg_calc = Pair::pair(
             &cred_rev_pub_key.pk.add(&r_cred.g_i)?,
@@ -803,10 +773,7 @@ impl Prover {
         let pair_gg = Pair::pair(&cred_rev_pub_key.g, &cred_rev_pub_key.g_dash)?;
 
         if pair_gg_calc != pair_gg {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Issuer is sending incorrect data",
-            ));
+            return Err(err_msg!("Issuer is sending incorrect data"));
         }
 
         let m2 = GroupOrderElement::from_bytes(&r_cnxt_m2.to_bytes()?)?;
@@ -827,10 +794,7 @@ impl Prover {
         )?;
 
         if pair_h1 != pair_h2 {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Issuer is sending incorrect data",
-            ));
+            return Err(err_msg!("Issuer is sending incorrect data"));
         }
 
         trace!("Prover::_test_witness_signature: <<<");
@@ -849,7 +813,7 @@ pub struct ProofBuilder {
 
 impl ProofBuilder {
     /// Creates m_tildes for attributes that will be the same across all subproofs
-    pub fn add_common_attribute(&mut self, attr_name: &str) -> UrsaCryptoResult<()> {
+    pub fn add_common_attribute(&mut self, attr_name: &str) -> ClResult<()> {
         self.common_attributes
             .insert(attr_name.to_owned(), bn_rand(LARGE_MVECT)?);
         Ok(())
@@ -869,10 +833,10 @@ impl ProofBuilder {
     ///
     /// #Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -940,7 +904,7 @@ impl ProofBuilder {
         credential_pub_key: &CredentialPublicKey,
         rev_reg: Option<&RevocationRegistry>,
         witness: Option<&Witness>,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "ProofBuilder::add_sub_proof_request: >>> sub_proof_request: {:?}, \
              credential_schema: {:?}, \
@@ -1023,10 +987,10 @@ impl ProofBuilder {
     ///
     /// #Example
     /// ```
-    /// use ursa::cl::new_nonce;
-    /// use ursa::cl::issuer::Issuer;
-    /// use ursa::cl::prover::Prover;
-    /// use ursa::cl::verifier::Verifier;
+    /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::Issuer;
+    /// use anoncreds_clsignatures::Prover;
+    /// use anoncreds_clsignatures::Verifier;
     ///
     /// let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
     /// credential_schema_builder.add_attr("sex").unwrap();
@@ -1089,7 +1053,7 @@ impl ProofBuilder {
     /// let proof_request_nonce = new_nonce().unwrap();
     /// let _proof = proof_builder.finalize(&proof_request_nonce).unwrap();
     /// ```
-    pub fn finalize(&self, nonce: &Nonce) -> UrsaCryptoResult<Proof> {
+    pub fn finalize(&self, nonce: &Nonce) -> ClResult<Proof> {
         trace!("ProofBuilder::finalize: >>> nonce: {:?}", nonce);
 
         let mut values: Vec<Vec<u8>> = Vec::new();
@@ -1147,7 +1111,7 @@ impl ProofBuilder {
         sub_proof_request: &SubProofRequest,
         cred_schema: &CredentialSchema,
         non_credential_schema: &NonCredentialSchema,
-    ) -> UrsaCryptoResult<()> {
+    ) -> ClResult<()> {
         trace!(
             "ProofBuilder::_check_add_sub_proof_request_params_consistency: >>> cred_values: {:?}, sub_proof_request: {:?}, cred_schema: {:?}",
             cred_values,
@@ -1164,9 +1128,8 @@ impl ProofBuilder {
         let cred_attrs = BTreeSet::from_iter(cred_values.attrs_values.keys().cloned());
 
         if schema_attrs != cred_attrs {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Credential doesn't correspond to credential schema",
+            return Err(err_msg!(
+                "Credential doesn't correspond to credential schema"
             ));
         }
 
@@ -1176,10 +1139,7 @@ impl ProofBuilder {
             .count()
             != 0
         {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Credential doesn't contain requested attribute",
-            ));
+            return Err(err_msg!("Credential doesn't contain requested attribute"));
         }
 
         let predicates_attrs = sub_proof_request
@@ -1189,9 +1149,8 @@ impl ProofBuilder {
             .collect::<BTreeSet<String>>();
 
         if predicates_attrs.difference(&cred_attrs).count() != 0 {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Credential doesn't contain attribute requested in predicate",
+            return Err(err_msg!(
+                "Credential doesn't contain attribute requested in predicate"
             ));
         }
 
@@ -1200,9 +1159,8 @@ impl ProofBuilder {
             .count()
             != 0
         {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "ProofRequest can't contain an attribute as a revealed value and as a predicate at the same time",
+            return Err(err_msg!(
+                "ProofRequest can't contain an attribute as a revealed value and as a predicate at the same time"
             ));
         }
 
@@ -1220,7 +1178,7 @@ impl ProofBuilder {
         non_cred_schema_elems: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
         m2_t: Option<BigNumber>,
-    ) -> UrsaCryptoResult<PrimaryInitProof> {
+    ) -> ClResult<PrimaryInitProof> {
         trace!(
             "ProofBuilder::_init_primary_proof: >>> common_attributes: {:?}, \
              issuer_pub_key: {:?}, \
@@ -1279,7 +1237,7 @@ impl ProofBuilder {
         rev_reg: &RevocationRegistry,
         cred_rev_pub_key: &CredentialRevocationPublicKey,
         witness: &Witness,
-    ) -> UrsaCryptoResult<NonRevocInitProof> {
+    ) -> ClResult<NonRevocInitProof> {
         trace!("ProofBuilder::_init_non_revocation_proof: >>> r_cred: {:?}, rev_reg: {:?}, cred_rev_pub_key: {:?}, witness: {:?}",
                r_cred, rev_reg, cred_rev_pub_key, witness);
 
@@ -1314,7 +1272,7 @@ impl ProofBuilder {
         non_cred_schema_elems: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
         m2_t: Option<BigNumber>,
-    ) -> UrsaCryptoResult<PrimaryEqualInitProof> {
+    ) -> ClResult<PrimaryEqualInitProof> {
         trace!(
             "ProofBuilder::_init_eq_proof: >>> cred_pub_key: {:?}, \
              c1: {:?}, \
@@ -1394,7 +1352,7 @@ impl ProofBuilder {
         m_tilde: &HashMap<String, BigNumber>,
         cred_values: &CredentialValues,
         predicate: &Predicate,
-    ) -> UrsaCryptoResult<PrimaryPredicateInequalityInitProof> {
+    ) -> ClResult<PrimaryPredicateInequalityInitProof> {
         trace!("ProofBuilder::_init_ne_proof: >>> p_pub_key: {:?}, m_tilde: {:?}, cred_values: {:?}, predicate: {:?}",
                p_pub_key, m_tilde, cred_values, predicate);
 
@@ -1404,31 +1362,20 @@ impl ProofBuilder {
             .attrs_values
             .get(&predicate.attr_name)
             .ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!(
-                        "Value by key '{}' not found in cred_values",
-                        predicate.attr_name
-                    ),
+                err_msg!(
+                    "Value by key '{}' not found in cred_values",
+                    predicate.attr_name
                 )
             })?
             .value()
             .to_dec()?
             .parse::<i32>()
-            .map_err(|_| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' has invalid format", predicate.attr_name),
-                )
-            })?;
+            .map_err(|_| err_msg!("Value by key '{}' has invalid format", predicate.attr_name))?;
 
         let delta = predicate.get_delta(attr_value);
 
         if delta < 0 {
-            return Err(err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                "Predicate is not satisfied",
-            ));
+            return Err(err_msg!("Predicate is not satisfied"));
         }
 
         let u = four_squares(delta)?;
@@ -1438,12 +1385,9 @@ impl ProofBuilder {
         let mut c_list: Vec<BigNumber> = Vec::new();
 
         for i in 0..ITERATION {
-            let cur_u = u.get(&i.to_string()).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' not found in u1", i),
-                )
-            })?;
+            let cur_u = u
+                .get(&i.to_string())
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in u1", i))?;
 
             let cur_r = bn_rand(LARGE_VPRIME)?;
             let cut_t = get_pedersen_commitment(
@@ -1487,12 +1431,9 @@ impl ProofBuilder {
         let alpha_tilde = bn_rand(LARGE_ALPHATILDE)?;
 
         let mj = m_tilde.get(&predicate.attr_name).ok_or_else(|| {
-            err_msg(
-                UrsaCryptoErrorKind::InvalidStructure,
-                format!(
-                    "Value by key '{}' not found in eq_proof.mtilde",
-                    predicate.attr_name
-                ),
+            err_msg!(
+                "Value by key '{}' not found in eq_proof.mtilde",
+                predicate.attr_name
             )
         })?;
 
@@ -1533,7 +1474,7 @@ impl ProofBuilder {
         non_cred_schema_elems: &NonCredentialSchema,
         cred_values: &CredentialValues,
         sub_proof_request: &SubProofRequest,
-    ) -> UrsaCryptoResult<PrimaryEqualProof> {
+    ) -> ClResult<PrimaryEqualProof> {
         trace!(
             "ProofBuilder::_finalize_eq_proof: >>> init_proof: {:?}, challenge: {:?}, cred_schema: {:?}, \
         cred_values: {:?}, sub_proof_request: {:?}",
@@ -1566,19 +1507,15 @@ impl ProofBuilder {
             .collect::<BTreeSet<String>>();
 
         for k in unrevealed_attrs.iter() {
-            let cur_mtilde = init_proof.m_tilde.get(k).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' not found in init_proof.mtilde", k),
-                )
-            })?;
+            let cur_mtilde = init_proof
+                .m_tilde
+                .get(k)
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in init_proof.mtilde", k))?;
 
-            let cur_val = cred_values.attrs_values.get(k).ok_or_else(|| {
-                err_msg(
-                    UrsaCryptoErrorKind::InvalidStructure,
-                    format!("Value by key '{}' not found in attributes_values", k),
-                )
-            })?;
+            let cur_val = cred_values
+                .attrs_values
+                .get(k)
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in attributes_values", k))?;
 
             // val = cur_mtilde + (cur_val * challenge)
             let val = challenge
@@ -1600,12 +1537,7 @@ impl ProofBuilder {
                 cred_values
                     .attrs_values
                     .get(attr)
-                    .ok_or_else(|| {
-                        err_msg(
-                            UrsaCryptoErrorKind::InvalidStructure,
-                            "Encoded value not found",
-                        )
-                    })?
+                    .ok_or_else(|| err_msg!("Encoded value not found"))?
                     .value()
                     .try_clone()?,
             );
@@ -1632,7 +1564,7 @@ impl ProofBuilder {
         c_h: &BigNumber,
         init_proof: &PrimaryPredicateInequalityInitProof,
         eq_proof: &PrimaryEqualProof,
-    ) -> UrsaCryptoResult<PrimaryPredicateInequalityProof> {
+    ) -> ClResult<PrimaryPredicateInequalityProof> {
         trace!(
             "ProofBuilder::_finalize_ne_proof: >>> c_h: {:?}, init_proof: {:?}, eq_proof: {:?}",
             c_h,
@@ -1697,7 +1629,7 @@ impl ProofBuilder {
         non_cred_schema_elems: &NonCredentialSchema,
         cred_values: &CredentialValues,
         sub_proof_request: &SubProofRequest,
-    ) -> UrsaCryptoResult<PrimaryProof> {
+    ) -> ClResult<PrimaryProof> {
         trace!(
             "ProofBuilder::_finalize_primary_proof: >>> init_proof: {:?}, challenge: {:?}, cred_schema: {:?}, \
         cred_values: {:?}, sub_proof_request: {:?}",
@@ -1738,7 +1670,7 @@ impl ProofBuilder {
 
     fn _gen_c_list_params(
         r_cred: &NonRevocationCredentialSignature,
-    ) -> UrsaCryptoResult<NonRevocProofXList> {
+    ) -> ClResult<NonRevocProofXList> {
         trace!("ProofBuilder::_gen_c_list_params: >>> r_cred: {:?}", r_cred);
 
         let rho = GroupOrderElement::new()?;
@@ -1784,7 +1716,7 @@ impl ProofBuilder {
         params: &NonRevocProofXList,
         r_pub_key: &CredentialRevocationPublicKey,
         witness: &Witness,
-    ) -> UrsaCryptoResult<NonRevocProofCList> {
+    ) -> ClResult<NonRevocProofCList> {
         trace!(
             "ProofBuilder::_create_c_list_values: >>> r_cred: {:?}, r_pub_key: {:?}",
             r_cred,
@@ -1835,7 +1767,7 @@ impl ProofBuilder {
         Ok(non_revoc_proof_c_list)
     }
 
-    fn _gen_tau_list_params() -> UrsaCryptoResult<NonRevocProofXList> {
+    fn _gen_tau_list_params() -> ClResult<NonRevocProofXList> {
         trace!("ProofBuilder::_gen_tau_list_params: >>>");
 
         let non_revoc_proof_x_list = NonRevocProofXList {
@@ -1866,7 +1798,7 @@ impl ProofBuilder {
     fn _finalize_non_revocation_proof(
         init_proof: &NonRevocInitProof,
         c_h: &BigNumber,
-    ) -> UrsaCryptoResult<NonRevocProof> {
+    ) -> ClResult<NonRevocProof> {
         trace!(
             "ProofBuilder::_finalize_non_revocation_proof: >>> init_proof: {:?}, c_h: {:?}",
             init_proof,
@@ -1902,7 +1834,7 @@ impl ProofBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cl::issuer;
+    use crate::issuer;
     #[cfg(feature = "serde")]
     use serde_json::{self, json};
     use std::time::Instant;
@@ -2239,6 +2171,7 @@ mod tests {
     Update NonRevocation Credential Time: Duration { secs: 6, nanos: 35027554 }
     Total Time for 1000000 credentials: Duration { secs: 1798, nanos: 420564334 }
     */
+    #[cfg(feature = "openssl_bn")]
     #[test]
     fn test_update_proof() {
         println!("Update Proof test -> start");
@@ -2397,9 +2330,10 @@ mod tests {
     }
 }
 
+#[cfg(test)]
 pub mod mocks {
-    use self::issuer::mocks as issuer_mocks;
     use super::*;
+    use crate::issuer::mocks as issuer_mocks;
 
     pub const PROVER_DID: &str = "CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW";
 
@@ -2464,7 +2398,7 @@ pub mod mocks {
     pub fn credential() -> CredentialSignature {
         CredentialSignature {
             p_credential: primary_credential(),
-            r_credential: Some(issuer::mocks::revocation_credential()),
+            r_credential: Some(issuer_mocks::revocation_credential()),
         }
     }
 

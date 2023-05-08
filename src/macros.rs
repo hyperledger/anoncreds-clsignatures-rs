@@ -22,6 +22,7 @@ macro_rules! hashmap {
     }
 }
 
+#[cfg(test)]
 macro_rules! btreeset {
     ( $( $x:expr ),* ) => {
         {
@@ -34,6 +35,7 @@ macro_rules! btreeset {
     }
 }
 
+#[cfg(test)]
 macro_rules! btreemap {
     ($( $key: expr => $val: expr ),*) => {
         {
@@ -44,4 +46,20 @@ macro_rules! btreemap {
             map
         }
     }
+}
+
+#[cfg(debug_assertions)]
+#[macro_export]
+macro_rules! secret {
+    ($val:expr) => {{
+        $val
+    }};
+}
+
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! secret {
+    ($val:expr) => {{
+        "_"
+    }};
 }

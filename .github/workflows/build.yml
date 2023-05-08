@@ -1,7 +1,7 @@
 name: "Build"
 
 env:
-  RUST_VERSION: "1.60.0"
+  RUST_VERSION: "1.63.0"
 
 on:
   push:
@@ -38,15 +38,15 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Cargo check
-        run: cargo check --workspace
+        run: cargo check --workspace --features openssl_vendored
 
       - name: Debug build
-        run: cargo build --all-targets
+        run: cargo build --all-targets --features openssl_vendored
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --features openssl_vendored
         env:
           RUST_BACKTRACE: full
 
       - name: Release build
-        run: cargo build --release --all-targets
+        run: cargo build --release --all-targets --features openssl_vendored

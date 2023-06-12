@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 use std::iter::FromIterator;
+use std::ops::RangeInclusive;
 
 use crate::amcl::*;
 use crate::bn::BigNumber;
@@ -369,7 +370,7 @@ impl CredentialKeyCorrectnessProof {
     }
 }
 
-/// `Revocation Public Key` is used to verify that credential was'nt revoked by Issuer.
+/// `Revocation Public Key` is used to verify that credential wasn't revoked by Issuer.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct CredentialRevocationPublicKey {
@@ -499,11 +500,36 @@ impl Tail {
         index: u32,
         g_dash: &PointG2,
         gamma: &GroupOrderElement,
-    ) -> ClResult<Tail> {
+    ) -> ClResult<Self> {
+        g_dash.mul(&Self::index_pow(index, gamma)?)
+    }
+
+    pub(crate) fn next_tail(&self, gamma: &GroupOrderElement) -> ClResult<Self> {
+        self.mul(gamma)
+    }
+
+    pub(crate) fn index_pow(index: u32, gamma: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let i_bytes = helpers::transform_u32_to_array_of_u8(index);
-        let mut pow = GroupOrderElement::from_bytes(&i_bytes)?;
-        pow = gamma.pow_mod(&pow)?;
-        g_dash.mul(&pow)
+        gamma.pow_mod(&GroupOrderElement::from_bytes(&i_bytes)?)
+    }
+
+    pub(crate) fn accum_range(
+        g_dash: &PointG2,
+        gamma: &GroupOrderElement,
+        range: RangeInclusive<u32>,
+    ) -> ClResult<Accumulator> {
+        let (mut start, mut end) = range.into_inner();
+        if start > end {
+            std::mem::swap(&mut start, &mut end);
+        }
+        let mut pow = Self::index_pow(start, gamma)?;
+        let mut acc = pow;
+        while start < end {
+            pow = pow.mul_mod(&gamma)?;
+            acc = acc.add_mod(&pow)?;
+            start += 1;
+        }
+        g_dash.mul(&acc)
     }
 }
 
@@ -515,6 +541,7 @@ pub struct RevocationTailsGenerator {
     pub(crate) current_index: u32,
     pub(crate) g_dash: PointG2,
     pub(crate) gamma: GroupOrderElement,
+    cur: Option<Tail>,
 }
 
 impl RevocationTailsGenerator {
@@ -524,6 +551,7 @@ impl RevocationTailsGenerator {
             current_index: 0,
             gamma,
             g_dash,
+            cur: None,
         }
     }
 
@@ -533,14 +561,21 @@ impl RevocationTailsGenerator {
 
     pub fn try_next(&mut self) -> ClResult<Option<Tail>> {
         if self.current_index >= self.size {
-            return Ok(None);
+            self.cur = None
+        } else {
+            if let Some(tail) = self.cur.take() {
+                self.cur.replace(tail.next_tail(&self.gamma)?);
+            } else {
+                self.cur = Some(Tail::new_tail(
+                    self.current_index,
+                    &self.g_dash,
+                    &self.gamma,
+                )?);
+            }
+
+            self.current_index += 1;
         }
-
-        let tail = Tail::new_tail(self.current_index, &self.g_dash, &self.gamma)?;
-
-        self.current_index += 1;
-
-        Ok(Some(tail))
+        Ok(self.cur)
     }
 }
 
@@ -645,7 +680,7 @@ impl SignatureCorrectnessProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Witness {
     pub(crate) omega: PointG2,
 }
@@ -666,17 +701,12 @@ impl Witness {
 
         let mut omega = PointG2::new_inf()?;
 
-        let mut issued = if issuance_by_default {
-            (1..=max_cred_num)
-                .filter(|idx| !rev_reg_delta.revoked.contains(idx))
-                .collect::<BTreeSet<u32>>()
-        } else {
-            BTreeSet::from_iter(rev_reg_delta.issued.iter().cloned())
-        };
-
+        let mut issued = Self::issued_indices(max_cred_num, issuance_by_default, rev_reg_delta);
         issued.remove(&rev_idx);
-        for j in issued.iter() {
+
+        for j in issued {
             let index = max_cred_num + 1 - j + rev_idx;
+            // println!("{index}");
             rev_tails_accessor.access_tail(index, &mut |tail| {
                 omega = omega.add(tail).unwrap();
             })?;
@@ -706,7 +736,7 @@ impl Witness {
             rev_reg_delta
         );
 
-        let mut omega_denom = PointG2::new_inf()?;
+        let mut new_omega = self.omega.clone();
         for j in rev_reg_delta.revoked.iter() {
             if rev_idx.eq(j) {
                 continue;
@@ -714,11 +744,10 @@ impl Witness {
 
             let index = max_cred_num + 1 - j + rev_idx;
             rev_tails_accessor.access_tail(index, &mut |tail| {
-                omega_denom = omega_denom.add(tail).unwrap();
+                new_omega = new_omega.sub(tail).unwrap();
             })?;
         }
 
-        let mut omega_num = PointG2::new_inf()?;
         for j in rev_reg_delta.issued.iter() {
             if rev_idx.eq(j) {
                 continue;
@@ -726,17 +755,29 @@ impl Witness {
 
             let index = max_cred_num + 1 - j + rev_idx;
             rev_tails_accessor.access_tail(index, &mut |tail| {
-                omega_num = omega_num.add(tail).unwrap();
+                new_omega = new_omega.add(tail).unwrap();
             })?;
         }
-
-        let new_omega: PointG2 = self.omega.add(&omega_num.sub(&omega_denom)?)?;
 
         self.omega = new_omega;
 
         trace!("Witness::update: <<<");
 
         Ok(())
+    }
+
+    fn issued_indices(
+        max_cred_num: u32,
+        issuance_by_default: bool,
+        rev_reg_delta: &RevocationRegistryDelta,
+    ) -> BTreeSet<u32> {
+        if issuance_by_default {
+            (1..=max_cred_num)
+                .filter(|idx| !rev_reg_delta.revoked.contains(idx))
+                .collect::<BTreeSet<u32>>()
+        } else {
+            BTreeSet::from_iter(rev_reg_delta.issued.iter().cloned())
+        }
     }
 }
 
@@ -1308,5 +1349,34 @@ impl AppendByteArray for Vec<Vec<u8>> {
             self.push(el.to_bytes()?);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tail_accum_range() {
+        let ranges = [0..=10, 10..=0, 1..=2, 1..=1];
+
+        for range in ranges {
+            let g_dash = PointG2::new().unwrap();
+            let gamma = GroupOrderElement::new().unwrap();
+
+            let mut acc1 = PointG2::new_inf().unwrap();
+            let mut r = range.clone().into_inner();
+            if r.0 > r.1 {
+                std::mem::swap(&mut r.0, &mut r.1);
+            }
+            for idx in r.0..=r.1 {
+                acc1 = acc1
+                    .add(&Tail::new_tail(idx, &g_dash, &gamma).unwrap())
+                    .unwrap();
+            }
+
+            let acc2 = Tail::accum_range(&g_dash, &gamma, range.clone()).unwrap();
+            assert_eq!(acc1, acc2, "Invalid accum for range {:?}", range);
+        }
     }
 }

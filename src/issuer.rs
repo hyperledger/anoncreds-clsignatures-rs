@@ -948,19 +948,13 @@ impl Issuer {
         trace!("Issuer::_new_revocation_registry: >>> cred_rev_pub_key: {:?}, rev_key_priv: {:?}, max_cred_num: {:?}, issuance_by_default: {:?}",
                cred_rev_pub_key, secret!(rev_key_priv), max_cred_num, issuance_by_default);
 
-        let mut accum = Accumulator::new_inf()?;
-
-        if issuance_by_default {
-            for i in 1..=max_cred_num {
-                let index = Issuer::_get_index(max_cred_num, i);
-                accum = accum.add(&Tail::new_tail(
-                    index,
-                    &cred_rev_pub_key.g_dash,
-                    &rev_key_priv.gamma,
-                )?)?;
-            }
+        let accum = if issuance_by_default {
+            let start = Issuer::_get_index(max_cred_num, 1);
+            let end = Issuer::_get_index(max_cred_num, max_cred_num);
+            Tail::accum_range(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, start..=end)?
+        } else {
+            Accumulator::new_inf()?
         };
-
         let rev_reg = RevocationRegistry { accum };
 
         trace!(
@@ -1734,6 +1728,7 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(unused)]
 pub mod mocks {
     use super::*;
     use crate::prover::mocks as prover_mocks;

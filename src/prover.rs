@@ -2331,6 +2331,7 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(unused)]
 pub mod mocks {
     use super::*;
     use crate::issuer::mocks as issuer_mocks;

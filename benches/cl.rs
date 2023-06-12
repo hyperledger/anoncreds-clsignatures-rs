@@ -67,22 +67,40 @@ fn setup_cred_and_issue(
     let non_credential_schema = get_non_credential_schema();
 
     // 2. Issuer creates credential definition(with revocation keys)
+    let start = Instant::now();
     let (credential_pub_key, credential_priv_key, credential_key_correctness_proof) =
         Issuer::new_credential_def(&credential_schema, &non_credential_schema, true).unwrap();
+    println!("Generate credential definition is {:.2?}", start.elapsed());
 
     // 3. Issuer creates revocation registry
+    let start = Instant::now();
     let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
         Issuer::new_revocation_registry_def(&credential_pub_key, max_cred_num, issuance_by_default)
             .unwrap();
+    println!(
+        "Generate registry for {max_cred_num} is {:.2?}",
+        start.elapsed()
+    );
 
+    // 4. Issuer outputs tails file
+    let start = Instant::now();
     let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
+    println!(
+        "Generate tails for {max_cred_num} is {:.2?}",
+        start.elapsed()
+    );
 
     let mut prover_data: Vec<ProverData> = vec![];
 
-    let mut rev_reg_delta: Option<RevocationRegistryDelta> = None;
+    let mut rev_reg_delta: Option<RevocationRegistryDelta> = if issuance_by_default {
+        Some(RevocationRegistryDelta::from(&rev_reg))
+    } else {
+        None
+    };
 
     let start = Instant::now();
-    for i in 0..max_cred_num {
+    let max_issue = max_cred_num.min(100);
+    for i in 0..max_issue {
         let credential_values = get_credential_values(&Prover::new_master_secret().unwrap());
 
         // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
@@ -125,16 +143,18 @@ fn setup_cred_and_issue(
             )
             .unwrap();
 
-        if i == 0 {
-            rev_reg_delta = rr_delta;
-        } else {
-            let mut new_delta = rev_reg_delta.unwrap();
-            new_delta.merge(&rr_delta.unwrap()).unwrap();
-            rev_reg_delta = Some(new_delta)
+        if !issuance_by_default {
+            if i == 0 {
+                rev_reg_delta = rr_delta;
+            } else {
+                let mut new_delta = rev_reg_delta.unwrap();
+                new_delta.merge(&rr_delta.unwrap()).unwrap();
+                rev_reg_delta = Some(new_delta)
+            }
         }
 
-        let unwrapped_delta = rev_reg_delta.unwrap();
         // 9. Prover creates witness
+        let unwrapped_delta = rev_reg_delta.unwrap();
         let witness = Witness::new(
             rev_idx,
             max_cred_num,
@@ -159,14 +179,10 @@ fn setup_cred_and_issue(
         )
         .unwrap();
 
-        prover_data.push((rev_idx, credential_values, credential_signature, witness))
+        prover_data.push((rev_idx, credential_values, credential_signature, witness));
     }
 
-    println!(
-        "Issuance time for {} is {:?}",
-        max_cred_num,
-        start.elapsed()
-    );
+    println!("Issuance time for {max_issue} is {:.2?}", start.elapsed());
 
     (
         credential_schema,
@@ -233,12 +249,12 @@ fn gen_proofs(
     }
 
     println!(
-        "Total witness gen time for {} is {:?}",
+        "Total witness gen time for {} is {:.2?}",
         nonces.len(),
         total_witness_gen
     );
     println!(
-        "Total proving time for {} is {:?}",
+        "Total proving time for {} is {:.2?}",
         nonces.len(),
         total_proving
     );
@@ -247,9 +263,9 @@ fn gen_proofs(
 }
 
 fn main() {
-    let max_cred_num = 10;
+    let max_cred_num = 10000;
     let num_proofs_to_do = 1;
-    let issuance_by_default = false;
+    let issuance_by_default = true;
 
     let sub_proof_request = get_sub_proof_request();
     let (
@@ -282,7 +298,7 @@ fn main() {
         &mut prover_data,
     );
     println!(
-        "Proof gen time for {} is {:?}",
+        "Proof gen time for {} is {:.2?}",
         num_proofs_to_do,
         start.elapsed()
     );
@@ -304,7 +320,7 @@ fn main() {
         assert!(verifier.verify(&proofs[idx], &nonces[idx]).unwrap());
     }
     println!(
-        "Verif time for {} is {:?}",
+        "Verif time for {} is {:.2?}",
         num_proofs_to_do,
         start.elapsed()
     );

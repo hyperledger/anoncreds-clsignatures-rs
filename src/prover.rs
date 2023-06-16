@@ -2174,25 +2174,29 @@ mod tests {
     #[cfg(feature = "openssl_bn")]
     #[test]
     fn test_update_proof() {
+        use crate::Issuer;
+
         println!("Update Proof test -> start");
-        let n = 100;
+        let max_cred_num = 100;
 
         let total_start_time = Instant::now();
 
         let cred_schema = issuer::mocks::credential_schema();
         let non_cred_schema = issuer::mocks::non_credential_schema();
         let (cred_pub_key, cred_priv_key, cred_key_correctness_proof) =
-            issuer::Issuer::new_credential_def(&cred_schema, &non_cred_schema, true).unwrap();
+            issuer::Issuer::new_credential_def(&cred_schema, &non_cred_schema, true)
+                .expect("Error creating credential definition");
 
         let start_time = Instant::now();
 
         let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
-            issuer::Issuer::new_revocation_registry_def(&cred_pub_key, n, false).unwrap();
+            issuer::Issuer::new_revocation_registry_def(&cred_pub_key, max_cred_num, false)
+                .expect("Error creating revocation registry");
 
         let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
         println!(
-            "Create RevocationRegistry Time: {:?}",
+            "Create Revocation Registry Time: {:.02?}",
             Instant::now() - start_time
         );
 
@@ -2211,12 +2215,12 @@ mod tests {
             &cred_values,
             &credential_nonce,
         )
-        .unwrap();
+        .expect("Error creating linked secret commitment");
 
         let cred_issuance_nonce = new_nonce().unwrap();
 
         let rev_idx = 1;
-        let (mut cred_signature, signature_correctness_proof, rev_reg_delta) =
+        let (mut cred_signature, signature_correctness_proof, mut witness, rev_reg_delta) =
             issuer::Issuer::sign_credential_with_revoc(
                 "CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
                 &blinded_credential_secrets,
@@ -2227,17 +2231,13 @@ mod tests {
                 &cred_pub_key,
                 &cred_priv_key,
                 rev_idx,
-                n,
+                max_cred_num,
                 false,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             )
-            .unwrap();
-        let mut rev_reg_delta = rev_reg_delta.unwrap();
-
-        let mut witness =
-            Witness::new(rev_idx, n, false, &rev_reg_delta, &simple_tail_accessor).unwrap();
+            .expect("Error signing revocable credential");
+        assert!(rev_reg_delta.is_some());
 
         Prover::process_credential_signature(
             &mut cred_signature,
@@ -2250,37 +2250,41 @@ mod tests {
             Some(&rev_reg),
             Some(&witness),
         )
-        .unwrap();
+        .expect("Error processing credential signature");
 
         // Populate accumulator
-        for i in 2..n {
-            let index = n + 1 - i;
-
-            simple_tail_accessor
-                .access_tail(index, &mut |tail| {
-                    rev_reg_delta.accum = rev_reg_delta.accum.sub(tail).unwrap();
-                })
-                .unwrap();
-
-            rev_reg_delta.issued.insert(i);
+        let start_time = Instant::now();
+        let mut issued = BTreeSet::new();
+        for i in 2..max_cred_num {
+            let index = max_cred_num + 1 - i;
+            issued.insert(index);
         }
+        let updated_delta = Issuer::update_revocation_registry(
+            &mut rev_reg,
+            max_cred_num,
+            issued,
+            BTreeSet::new(),
+            &cred_pub_key,
+            &rev_key_priv,
+        )
+        .expect("Error updating revocation registry");
+        println!("Update Registry Time: {:.02?}", Instant::now() - start_time);
 
         // Update NonRevoc Credential
 
         let start_time = Instant::now();
 
         witness
-            .update(rev_idx, n, &rev_reg_delta, &simple_tail_accessor)
-            .unwrap();
+            .update(rev_idx, max_cred_num, &updated_delta, &simple_tail_accessor)
+            .expect("Error updating witness");
 
         println!(
-            "Update NonRevocation Credential Time: {:?}",
+            "Update NonRevocation Credential Time: {:.02?}",
             Instant::now() - start_time
         );
 
         println!(
-            "Total Time for {} credentials: {:?}",
-            n,
+            "Total Time for {max_cred_num} credentials: {:.02?}",
             Instant::now() - total_start_time
         );
 

@@ -360,7 +360,7 @@ impl Issuer {
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
-    /// let (_cred_signature, _signature_correctness_proof, _rev_reg_delta) =
+    /// let (_cred_signature, _signature_correctness_proof, _witness, _rev_reg_delta) =
     ///     Issuer::sign_credential_with_revoc("CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
     ///                                        &blinded_credential_secrets,
     ///                                        &blinded_credential_secrets_correctness_proof,
@@ -373,10 +373,9 @@ impl Issuer {
     ///                                        max_cred_num,
     ///                                        false,
     ///                                        &mut rev_reg,
-    ///                                        &rev_key_priv,
-    ///                                        &simple_tail_accessor).unwrap();
+    ///                                        &rev_key_priv).unwrap();
     /// ```
-    pub fn sign_credential_with_revoc<RTA>(
+    pub fn sign_credential_with_revoc(
         prover_id: &str,
         blinded_credential_secrets: &BlindedCredentialSecrets,
         blinded_credential_secrets_correctness_proof: &BlindedCredentialSecretsCorrectnessProof,
@@ -390,15 +389,12 @@ impl Issuer {
         issuance_by_default: bool,
         rev_reg: &mut RevocationRegistry,
         rev_key_priv: &RevocationKeyPrivate,
-        rev_tails_accessor: &RTA,
     ) -> ClResult<(
         CredentialSignature,
         SignatureCorrectnessProof,
+        Witness,
         Option<RevocationRegistryDelta>,
-    )>
-    where
-        RTA: RevocationTailsAccessor,
-    {
+    )> {
         trace!("Issuer::sign_credential: >>> prover_id: {:?}, blinded_credential_secrets: {:?}, blinded_credential_secrets_correctness_proof: {:?},\
         credential_nonce: {:?}, credential_issuance_nonce: {:?}, credential_values: {:?}, credential_pub_key: {:?}, credential_priv_key: {:?}, \
         rev_idx: {:?}, max_cred_num: {:?}, rev_reg: {:?}, rev_key_priv: {:?}",
@@ -423,7 +419,7 @@ impl Issuer {
             credential_values,
         )?;
 
-        let (r_cred, rev_reg_delta) = Issuer::_new_non_revocation_credential(
+        let (r_cred, witness, rev_reg_delta) = Issuer::_new_non_revocation_credential(
             rev_idx,
             &cred_context,
             blinded_credential_secrets,
@@ -433,7 +429,6 @@ impl Issuer {
             issuance_by_default,
             rev_reg,
             rev_key_priv,
-            rev_tails_accessor,
         )?;
 
         let cred_signature = CredentialSignature {
@@ -449,10 +444,15 @@ impl Issuer {
             credential_issuance_nonce,
         )?;
 
-        trace!("Issuer::sign_credential: <<< cred_signature: {:?}, signature_correctness_proof: {:?}, rev_reg_delta: {:?}",
-               secret!(&cred_signature), signature_correctness_proof, rev_reg_delta);
+        trace!("Issuer::sign_credential: <<< cred_signature: {:?}, signature_correctness_proof: {:?}, witness: {:?}, rev_reg_delta: {:?}",
+               secret!(&cred_signature), signature_correctness_proof, witness, rev_reg_delta);
 
-        Ok((cred_signature, signature_correctness_proof, rev_reg_delta))
+        Ok((
+            cred_signature,
+            signature_correctness_proof,
+            witness,
+            rev_reg_delta,
+        ))
     }
 
     /// Revokes a credential by a rev_idx in a given revocation registry.
@@ -498,7 +498,7 @@ impl Issuer {
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
     /// let rev_idx = 1;
-    /// let (_cred_signature, _signature_correctness_proof, _rev_reg_delta) =
+    /// let (_cred_signature, _signature_correctness_proof, _witness, _rev_reg_delta) =
     ///     Issuer::sign_credential_with_revoc("CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
     ///                                        &blinded_credential_secrets,
     ///                                        &blinded_credential_secrets_correctness_proof,
@@ -511,19 +511,16 @@ impl Issuer {
     ///                                        max_cred_num,
     ///                                        false,
     ///                                        &mut rev_reg,
-    ///                                        &rev_key_priv,
-    ///                                         &simple_tail_accessor).unwrap();
-    /// Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor).unwrap();
+    ///                                        &rev_key_priv).unwrap();
+    /// Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &cred_pub_key, &rev_key_priv).unwrap();
     /// ```
-    pub fn revoke_credential<RTA>(
+    pub fn revoke_credential(
         rev_reg: &mut RevocationRegistry,
         max_cred_num: u32,
         rev_idx: u32,
-        rev_tails_accessor: &RTA,
-    ) -> ClResult<RevocationRegistryDelta>
-    where
-        RTA: RevocationTailsAccessor,
-    {
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+    ) -> ClResult<RevocationRegistryDelta> {
         trace!(
             "Issuer::revoke_credential: >>> rev_reg: {:?}, max_cred_num: {:?}, rev_idx: {:?}",
             rev_reg,
@@ -532,13 +529,13 @@ impl Issuer {
         );
 
         let prev_accum = rev_reg.accum;
-
-        let index = Issuer::_get_index(max_cred_num, rev_idx);
-
-        rev_tails_accessor.access_tail(index, &mut |tail| {
-            rev_reg.accum = rev_reg.accum.sub(tail).unwrap();
-        })?;
-
+        rev_reg.accum = Self::_update_revocation_accumulator(
+            prev_accum,
+            max_cred_num,
+            [(rev_idx, true)],
+            credential_pub_key,
+            rev_key_priv,
+        )?;
         let rev_reg_delta = RevocationRegistryDelta {
             prev_accum: Some(prev_accum),
             accum: rev_reg.accum,
@@ -554,7 +551,7 @@ impl Issuer {
         Ok(rev_reg_delta)
     }
 
-    /// Recovery a credential by a rev_idx in a given revocation registry
+    /// Unrevoke a credential by a rev_idx in a given revocation registry
     ///
     /// # Arguments
     /// * `rev_reg` - Revocation registry.
@@ -598,7 +595,7 @@ impl Issuer {
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
     /// let rev_idx = 1;
-    /// let (_cred_signature, _signature_correctness_proof, _rev_reg_delta) =
+    /// let (_cred_signature, _signature_correctness_proof, _witness, _rev_reg_delta) =
     ///     Issuer::sign_credential_with_revoc("CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
     ///                                        &blinded_credential_secrets,
     ///                                        &blinded_credential_secrets_correctness_proof,
@@ -611,35 +608,32 @@ impl Issuer {
     ///                                        max_cred_num,
     ///                                        false,
     ///                                        &mut rev_reg,
-    ///                                        &rev_key_priv,
-    ///                                         &simple_tail_accessor).unwrap();
-    /// Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor).unwrap();
-    /// Issuer::recovery_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor).unwrap();
+    ///                                        &rev_key_priv).unwrap();
+    /// Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &cred_pub_key, &rev_key_priv).unwrap();
+    /// Issuer::unrevoke_credential(&mut rev_reg, max_cred_num, rev_idx, &cred_pub_key, &rev_key_priv).unwrap();
     /// ```
-    pub fn recovery_credential<RTA>(
+    pub fn unrevoke_credential(
         rev_reg: &mut RevocationRegistry,
         max_cred_num: u32,
         rev_idx: u32,
-        rev_tails_accessor: &RTA,
-    ) -> ClResult<RevocationRegistryDelta>
-    where
-        RTA: RevocationTailsAccessor,
-    {
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+    ) -> ClResult<RevocationRegistryDelta> {
         trace!(
-            "Issuer::recovery_credential: >>> rev_reg: {:?}, max_cred_num: {:?}, rev_idx: {:?}",
+            "Issuer::unrevoke_credential: >>> rev_reg: {:?}, max_cred_num: {:?}, rev_idx: {:?}",
             rev_reg,
             max_cred_num,
             secret!(rev_idx)
         );
 
         let prev_accum = rev_reg.accum;
-
-        let index = Issuer::_get_index(max_cred_num, rev_idx);
-
-        rev_tails_accessor.access_tail(index, &mut |tail| {
-            rev_reg.accum = rev_reg.accum.add(tail).unwrap();
-        })?;
-
+        rev_reg.accum = Self::_update_revocation_accumulator(
+            prev_accum,
+            max_cred_num,
+            [(rev_idx, false)],
+            credential_pub_key,
+            rev_key_priv,
+        )?;
         let rev_reg_delta = RevocationRegistryDelta {
             prev_accum: Some(prev_accum),
             accum: rev_reg.accum,
@@ -648,7 +642,7 @@ impl Issuer {
         };
 
         trace!(
-            "Issuer::recovery_credential: <<< rev_reg_delta: {:?}",
+            "Issuer::unrevoke_credential: <<< rev_reg_delta: {:?}",
             rev_reg_delta
         );
 
@@ -700,7 +694,7 @@ impl Issuer {
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
     /// let rev_idx = 1;
-    /// let (_cred_signature, _signature_correctness_proof, _rev_reg_delta) =
+    /// let (_cred_signature, _signature_correctness_proof, _witness, _rev_reg_delta) =
     ///     Issuer::sign_credential_with_revoc("CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
     ///                                        &blinded_credential_secrets,
     ///                                        &blinded_credential_secrets_correctness_proof,
@@ -713,23 +707,20 @@ impl Issuer {
     ///                                        max_cred_num,
     ///                                        false,
     ///                                        &mut rev_reg,
-    ///                                        &rev_key_priv,
-    ///                                         &simple_tail_accessor).unwrap();
+    ///                                        &rev_key_priv).unwrap();
     /// let mut issued = BTreeSet::new();
     /// issued.insert(rev_idx);
     /// let revoked = BTreeSet::new();
-    /// Issuer::update_revocation_registry(&mut rev_reg, max_cred_num, issued, revoked, &simple_tail_accessor).unwrap();
+    /// Issuer::update_revocation_registry(&mut rev_reg, max_cred_num, issued, revoked, &cred_pub_key, &rev_key_priv).unwrap();
     /// ```
-    pub fn update_revocation_registry<RTA>(
+    pub fn update_revocation_registry(
         rev_reg: &mut RevocationRegistry,
         max_cred_num: u32,
         issued: BTreeSet<u32>,
         revoked: BTreeSet<u32>,
-        rev_tails_accessor: &RTA,
-    ) -> ClResult<RevocationRegistryDelta>
-    where
-        RTA: RevocationTailsAccessor,
-    {
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+    ) -> ClResult<RevocationRegistryDelta> {
         trace!(
             "Issuer::update_revocation_registry: >>> rev_reg: {:?}, max_cred_num: {:?}, issued: {:?}, revoked: {:?}",
             rev_reg,
@@ -739,18 +730,16 @@ impl Issuer {
         );
 
         let prev_acc = rev_reg.accum;
-        for rev_idx in issued.iter() {
-            let tail_id = Self::_get_index(max_cred_num, *rev_idx);
-            rev_tails_accessor.access_tail(tail_id, &mut |tail| {
-                rev_reg.accum = rev_reg.accum.add(tail).unwrap()
-            })?;
-        }
-        for rev_idx in revoked.iter() {
-            let tail_id = Self::_get_index(max_cred_num, *rev_idx);
-            rev_tails_accessor.access_tail(tail_id, &mut |tail| {
-                rev_reg.accum = rev_reg.accum.sub(tail).unwrap()
-            })?;
-        }
+        rev_reg.accum = Self::_update_revocation_accumulator(
+            prev_acc,
+            max_cred_num,
+            issued
+                .iter()
+                .map(|idx| (*idx, false))
+                .chain(revoked.iter().map(|idx| (*idx, true))),
+            credential_pub_key,
+            rev_key_priv,
+        )?;
 
         let rev_reg_delta = RevocationRegistryDelta {
             prev_accum: Some(prev_acc),
@@ -765,6 +754,35 @@ impl Issuer {
         );
 
         Ok(rev_reg_delta)
+    }
+
+    pub fn _update_revocation_accumulator(
+        accum: PointG2,
+        max_cred_num: u32,
+        updates: impl IntoIterator<Item = (u32, bool)>,
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+    ) -> ClResult<PointG2> {
+        let rev_key_pub: &CredentialRevocationPublicKey =
+            credential_pub_key.r_key.as_ref().ok_or_else(|| {
+                err_msg!("No revocation part present in credential revocation public key.")
+            })?;
+
+        let mut pow_acc = GroupOrderElement::zero()?;
+        for (rev_idx, remove) in updates {
+            let index = Self::_get_index(max_cred_num, rev_idx);
+            let mut index_pow = Tail::index_pow(index, &rev_key_priv.gamma)?;
+            if remove {
+                index_pow = index_pow.mod_neg()?;
+            }
+            pow_acc = pow_acc.add_mod(&index_pow)?;
+        }
+        let new_acc = if pow_acc.is_zero() {
+            accum
+        } else {
+            accum.add(&rev_key_pub.g_dash.mul(&pow_acc)?)?
+        };
+        Ok(new_acc)
     }
 
     fn _new_credential_primary_keys(
@@ -1284,9 +1302,9 @@ impl Issuer {
         issuance_by_default: bool,
         rev_reg: &mut RevocationRegistry,
         rev_key_priv: &RevocationKeyPrivate,
-        rev_tails_accessor: &dyn RevocationTailsAccessor,
     ) -> ClResult<(
         NonRevocationCredentialSignature,
+        Witness,
         Option<RevocationRegistryDelta>,
     )> {
         trace!("Issuer::_new_non_revocation_credential: >>> rev_idx: {:?}, cred_context: {:?}, blinded_ms: {:?}, cred_pub_key: {:?}, cred_priv_key: {:?}, \
@@ -1312,12 +1330,8 @@ impl Issuer {
         let c = GroupOrderElement::new()?;
         let m2 = GroupOrderElement::from_bytes(&cred_context.to_bytes()?)?;
 
-        let g_i = {
-            let i_bytes = transform_u32_to_array_of_u8(rev_idx);
-            let mut pow = GroupOrderElement::from_bytes(&i_bytes)?;
-            pow = rev_key_priv.gamma.pow_mod(&pow)?;
-            r_pub_key.g.mul(&pow)?
-        };
+        let gamma_i = Tail::index_pow(rev_idx, &rev_key_priv.gamma)?;
+        let g_i = r_pub_key.g.mul(&gamma_i)?;
 
         let sigma = r_pub_key
             .h0
@@ -1327,31 +1341,19 @@ impl Issuer {
             .add(&r_pub_key.h2.mul(&vr_prime_prime)?)?
             .mul(&r_priv_key.x.add_mod(&c)?.inverse()?)?;
 
-        let sigma_i = r_pub_key.g_dash.mul(
-            &r_priv_key
-                .sk
-                .add_mod(&rev_key_priv.gamma.pow_mod(&GroupOrderElement::from_bytes(
-                    &transform_u32_to_array_of_u8(rev_idx),
-                )?)?)?
-                .inverse()?,
-        )?;
-        let u_i =
-            r_pub_key
-                .u
-                .mul(&rev_key_priv.gamma.pow_mod(&GroupOrderElement::from_bytes(
-                    &transform_u32_to_array_of_u8(rev_idx),
-                )?)?)?;
+        let sigma_i = r_pub_key
+            .g_dash
+            .mul(&r_priv_key.sk.add_mod(&gamma_i)?.inverse()?)?;
+        let u_i = r_pub_key.u.mul(&gamma_i)?;
 
         let index = Issuer::_get_index(max_cred_num, rev_idx);
+        let index_tail = Tail::new_tail(index, &r_pub_key.g_dash, &rev_key_priv.gamma)?;
+        let prev_acc = rev_reg.accum;
 
         let rev_reg_delta = if issuance_by_default {
             None
         } else {
-            let prev_acc = rev_reg.accum;
-
-            rev_tails_accessor.access_tail(index, &mut |tail| {
-                rev_reg.accum = rev_reg.accum.add(tail).unwrap();
-            })?;
+            rev_reg.accum = rev_reg.accum.add(&index_tail)?;
 
             Some(RevocationRegistryDelta {
                 prev_accum: Some(prev_acc),
@@ -1373,10 +1375,19 @@ impl Issuer {
             m2,
         };
 
+        let witness = {
+            let mut omega = prev_acc;
+            if issuance_by_default {
+                omega = omega.sub(&index_tail)?;
+            }
+            omega = omega.mul(&gamma_i)?;
+            Witness { omega }
+        };
+
         trace!("Issuer::_new_non_revocation_credential: <<< non_revocation_cred_sig: {:?}, rev_reg_delta: {:?}",
                secret!(&non_revocation_cred_sig), rev_reg_delta);
 
-        Ok((non_revocation_cred_sig, rev_reg_delta))
+        Ok((non_revocation_cred_sig, witness, rev_reg_delta))
     }
 }
 
@@ -1655,10 +1666,9 @@ mod tests {
 
         let max_cred_num = 5;
         let issuance_by_default = false;
-        let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+        let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
             Issuer::new_revocation_registry_def(&cred_pub_key, max_cred_num, issuance_by_default)
                 .unwrap();
-        let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
         println!("rev_key_pub={:#?}", rev_key_pub);
         println!("rev_key_priv={:#?}", rev_key_priv);
@@ -1669,7 +1679,7 @@ mod tests {
         println!("credential_issuance_nonce={:#?}", credential_issuance_nonce);
 
         let rev_idx = 1;
-        let (mut cred_signature, signature_correctness_proof, rev_reg_delta) =
+        let (mut cred_signature, signature_correctness_proof, witness, rev_reg_delta) =
             Issuer::sign_credential_with_revoc(
                 prover_mocks::PROVER_DID,
                 &blinded_credential_secrets,
@@ -1684,7 +1694,6 @@ mod tests {
                 issuance_by_default,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             )
             .unwrap();
 
@@ -1693,18 +1702,8 @@ mod tests {
             "signature_correctness_proof={:#?}",
             signature_correctness_proof
         );
-        println!("rev_reg_delta={:#?}", rev_reg_delta);
-
-        let witness = Witness::new(
-            rev_idx,
-            max_cred_num,
-            issuance_by_default,
-            &rev_reg_delta.unwrap(),
-            &simple_tail_accessor,
-        )
-        .unwrap();
-
         println!("witness={:#?}", witness);
+        println!("rev_reg_delta={:#?}", rev_reg_delta);
 
         Prover::process_credential_signature(
             &mut cred_signature,

@@ -377,6 +377,14 @@ impl GroupOrderElement {
         })
     }
 
+    pub fn zero() -> ClResult<GroupOrderElement> {
+        Ok(GroupOrderElement { bn: BIG::new() })
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.bn.iszilch()
+    }
+
     pub fn new_from_seed(seed: &[u8]) -> ClResult<GroupOrderElement> {
         // returns random element in 0, ..., GroupOrder-1
         if seed.len() != MODBYTES {
@@ -412,16 +420,10 @@ impl GroupOrderElement {
     pub fn sub_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         //need to use modneg if sub is negative
         let mut diff = self.bn;
-        diff.sub(&r.bn);
-        let mut zero = BIG::new();
-        zero.zero();
-
-        if diff < zero {
-            return Ok(GroupOrderElement {
-                bn: BIG::modneg(&diff, &BIG::new_ints(&CURVE_ORDER)),
-            });
+        if diff < r.bn {
+            diff = BIG::modneg(&diff, &BIG::new_ints(&CURVE_ORDER));
         }
-
+        diff.sub(&r.bn);
         Ok(GroupOrderElement { bn: diff })
     }
 

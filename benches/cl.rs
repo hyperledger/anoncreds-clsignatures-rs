@@ -124,7 +124,7 @@ fn setup_cred_and_issue(
 
         // 8. Issuer creates and sign credential values
         let rev_idx = i + 1;
-        let (mut credential_signature, signature_correctness_proof, rr_delta) =
+        let (mut credential_signature, signature_correctness_proof, witness, rr_delta) =
             Issuer::sign_credential_with_revoc(
                 &rev_idx.to_string(),
                 &blinded_credential_secrets,
@@ -139,7 +139,6 @@ fn setup_cred_and_issue(
                 issuance_by_default,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             )
             .unwrap();
 
@@ -153,19 +152,7 @@ fn setup_cred_and_issue(
             }
         }
 
-        // 9. Prover creates witness
-        let unwrapped_delta = rev_reg_delta.unwrap();
-        let witness = Witness::new(
-            rev_idx,
-            max_cred_num,
-            issuance_by_default,
-            &unwrapped_delta,
-            &simple_tail_accessor,
-        )
-        .unwrap();
-        rev_reg_delta = Some(unwrapped_delta);
-
-        // 10. Prover processes credential signature
+        // 9. Prover processes credential signature
         Prover::process_credential_signature(
             &mut credential_signature,
             &credential_values,
@@ -198,7 +185,6 @@ fn setup_cred_and_issue(
 
 fn gen_proofs(
     max_cred_num: u32,
-    issuance_by_default: bool,
     credential_schema: &CredentialSchema,
     non_credential_schema: &NonCredentialSchema,
     credential_pub_key: &CredentialPublicKey,
@@ -213,19 +199,13 @@ fn gen_proofs(
     let mut total_witness_gen = Duration::new(0, 0);
     let mut total_proving = Duration::new(0, 0);
     for i in 0..nonces.len() {
-        let (rev_idx, ref credential_values, ref credential_signature, ref mut _witness) =
+        let (rev_idx, ref credential_values, ref credential_signature, ref mut witness) =
             prover_data[i as usize];
 
         let mut start = Instant::now();
-        let witness = Witness::new(
-            rev_idx,
-            max_cred_num,
-            issuance_by_default,
-            rev_reg_delta,
-            simple_tail_accessor,
-        )
-        .unwrap();
-        //witness.update(rev_idx, max_cred_num, rev_reg_delta, simple_tail_accessor).unwrap();
+        witness
+            .update(rev_idx, max_cred_num, rev_reg_delta, simple_tail_accessor)
+            .unwrap();
         total_witness_gen += start.elapsed();
 
         let mut proof_builder = Prover::new_proof_builder().unwrap();
@@ -249,7 +229,7 @@ fn gen_proofs(
     }
 
     println!(
-        "Total witness gen time for {} is {:.2?}",
+        "Total witness update time for {} is {:.2?}",
         nonces.len(),
         total_witness_gen
     );
@@ -286,7 +266,6 @@ fn main() {
     let mut start = Instant::now();
     let proofs = gen_proofs(
         max_cred_num,
-        issuance_by_default,
         &credential_schema,
         &non_credential_schema,
         &credential_pub_key,

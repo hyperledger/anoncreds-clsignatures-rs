@@ -506,11 +506,9 @@ mod tests {
 
         let max_cred_num = 5;
         let issuance_by_default = false;
-        let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+        let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
             Issuer::new_revocation_registry_def(&cred_pub_key, max_cred_num, issuance_by_default)
                 .unwrap();
-
-        let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
         let master_secret = Prover::new_master_secret().unwrap();
 
@@ -552,7 +550,7 @@ mod tests {
         let credential_issuance_nonce = new_nonce().unwrap();
 
         let rev_idx = 1;
-        let (mut cred_signature, signature_correctness_proof, rev_reg_delta) =
+        let (mut cred_signature, signature_correctness_proof, witness, _rev_reg_delta) =
             Issuer::sign_credential_with_revoc(
                 "CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW",
                 &blinded_credential_secrets,
@@ -567,18 +565,8 @@ mod tests {
                 issuance_by_default,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             )
             .unwrap();
-
-        let witness = Witness::new(
-            rev_idx,
-            max_cred_num,
-            issuance_by_default,
-            &rev_reg_delta.unwrap(),
-            &simple_tail_accessor,
-        )
-        .unwrap();
 
         Prover::process_credential_signature(
             &mut cred_signature,
@@ -681,16 +669,13 @@ mod openssl_tests {
             // 4. Issuer creates GVT revocation registry with IssuanceOnDemand type
             let gvt_max_cred_num = 5;
             let gvt_issuance_by_default = false;
-            let (gvt_rev_key_pub, gvt_rev_key_priv, mut gvt_rev_reg, mut gvt_rev_tails_generator) =
+            let (gvt_rev_key_pub, gvt_rev_key_priv, mut gvt_rev_reg, _gvt_rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &gvt_credential_pub_key,
                     gvt_max_cred_num,
                     gvt_issuance_by_default,
                 )
                 .unwrap();
-
-            let gvt_simple_tail_accessor =
-                SimpleTailsAccessor::new(&mut gvt_rev_tails_generator).unwrap();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let gvt_credential_nonce = new_nonce().unwrap();
@@ -735,36 +720,29 @@ mod openssl_tests {
 
             // 9. Issuer signs GVT credential values
             let gvt_rev_idx = 1;
-            let (mut gvt_credential_signature, gvt_signature_correctness_proof, gvt_rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &gvt_blinded_credential_secrets,
-                    &gvt_blinded_credential_secrets_correctness_proof,
-                    &gvt_credential_nonce,
-                    &gvt_credential_issuance_nonce,
-                    &gvt_credential_values,
-                    &gvt_credential_pub_key,
-                    &gvt_credential_priv_key,
-                    gvt_rev_idx,
-                    gvt_max_cred_num,
-                    gvt_issuance_by_default,
-                    &mut gvt_rev_reg,
-                    &gvt_rev_key_priv,
-                    &gvt_simple_tail_accessor,
-                )
-                .unwrap();
-
-            // 10. Prover creates GVT witness
-            let gvt_witness = Witness::new(
+            let (
+                mut gvt_credential_signature,
+                gvt_signature_correctness_proof,
+                gvt_witness,
+                _gvt_rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &gvt_blinded_credential_secrets,
+                &gvt_blinded_credential_secrets_correctness_proof,
+                &gvt_credential_nonce,
+                &gvt_credential_issuance_nonce,
+                &gvt_credential_values,
+                &gvt_credential_pub_key,
+                &gvt_credential_priv_key,
                 gvt_rev_idx,
                 gvt_max_cred_num,
                 gvt_issuance_by_default,
-                &gvt_rev_reg_delta.unwrap(),
-                &gvt_simple_tail_accessor,
+                &mut gvt_rev_reg,
+                &gvt_rev_key_priv,
             )
             .unwrap();
 
-            // 11. Prover processes GVT credential signature
+            // 10. Prover processes GVT credential signature
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
                 &gvt_credential_values,
@@ -779,13 +757,13 @@ mod openssl_tests {
             .unwrap();
 
             // Issuer creates XYZ credential
-            // 12. Issuer creates XYZ credential schema
+            // 11. Issuer creates XYZ credential schema
             let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
             credential_schema_builder.add_attr("period").unwrap();
             credential_schema_builder.add_attr("status").unwrap();
             let xyz_credential_schema = credential_schema_builder.finalize().unwrap();
 
-            // 13. Issuer creates XYZ credential definition (with revocation keys)
+            // 12. Issuer creates XYZ credential definition (with revocation keys)
             let (
                 xyz_credential_pub_key,
                 xyz_credential_priv_key,
@@ -793,10 +771,10 @@ mod openssl_tests {
             ) = Issuer::new_credential_def(&xyz_credential_schema, &non_credential_schema, true)
                 .unwrap();
 
-            // 14. Issuer creates XYZ revocation registry with IssuanceByDefault type
+            // 13. Issuer creates XYZ revocation registry with IssuanceByDefault type
             let xyz_max_cred_num = 5;
             let xyz_issuance_by_default = true;
-            let (xyz_rev_key_pub, xyz_rev_key_priv, mut xyz_rev_reg, mut xyz_rev_tails_generator) =
+            let (xyz_rev_key_pub, xyz_rev_key_priv, mut xyz_rev_reg, _xyz_rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &xyz_credential_pub_key,
                     xyz_max_cred_num,
@@ -804,13 +782,10 @@ mod openssl_tests {
                 )
                 .unwrap();
 
-            let xyz_simple_tail_accessor =
-                SimpleTailsAccessor::new(&mut xyz_rev_tails_generator).unwrap();
-
-            // 15. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
+            // 14. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let xyz_credential_nonce = new_nonce().unwrap();
 
-            // 16. Issuer creates XYZ credential values
+            // 15. Issuer creates XYZ credential values
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
             credential_values_builder
                 .add_value_hidden("master_secret", &master_secret.value().unwrap())
@@ -823,7 +798,7 @@ mod openssl_tests {
                 .unwrap();
             let xyz_credential_values = credential_values_builder.finalize().unwrap();
 
-            // 17. Prover blinds hidden attributes
+            // 16. Prover blinds hidden attributes
             let (
                 xyz_blinded_credential_secrets,
                 xyz_credential_secrets_blinding_factors,
@@ -836,43 +811,35 @@ mod openssl_tests {
             )
             .unwrap();
 
-            // 18. Prover creates nonce used by Issuer to create correctness proof for signature
+            // 17. Prover creates nonce used by Issuer to create correctness proof for signature
             let xyz_credential_issuance_nonce = new_nonce().unwrap();
 
-            // 19. Issuer signs XYZ credential values
+            // 18. Issuer signs XYZ credential values
             let xyz_rev_idx = 1;
-            let (mut xyz_credential_signature, xyz_signature_correctness_proof, xyz_rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &xyz_blinded_credential_secrets,
-                    &xyz_blinded_credential_secrets_correctness_proof,
-                    &xyz_credential_nonce,
-                    &xyz_credential_issuance_nonce,
-                    &xyz_credential_values,
-                    &xyz_credential_pub_key,
-                    &xyz_credential_priv_key,
-                    xyz_rev_idx,
-                    xyz_max_cred_num,
-                    xyz_issuance_by_default,
-                    &mut xyz_rev_reg,
-                    &xyz_rev_key_priv,
-                    &xyz_simple_tail_accessor,
-                )
-                .unwrap();
-            assert!(xyz_rev_reg_delta.is_none());
-            let xyz_rev_reg_delta = RevocationRegistryDelta::from(&xyz_rev_reg);
-
-            // 20. Prover creates XYZ witness
-            let xyz_witness = Witness::new(
+            let (
+                mut xyz_credential_signature,
+                xyz_signature_correctness_proof,
+                xyz_witness,
+                xyz_rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &xyz_blinded_credential_secrets,
+                &xyz_blinded_credential_secrets_correctness_proof,
+                &xyz_credential_nonce,
+                &xyz_credential_issuance_nonce,
+                &xyz_credential_values,
+                &xyz_credential_pub_key,
+                &xyz_credential_priv_key,
                 xyz_rev_idx,
                 xyz_max_cred_num,
                 xyz_issuance_by_default,
-                &xyz_rev_reg_delta,
-                &xyz_simple_tail_accessor,
+                &mut xyz_rev_reg,
+                &xyz_rev_key_priv,
             )
             .unwrap();
+            assert!(xyz_rev_reg_delta.is_none());
 
-            // 21. Prover processes XYZ credential signature
+            // 19. Prover processes XYZ credential signature
             Prover::process_credential_signature(
                 &mut xyz_credential_signature,
                 &xyz_credential_values,
@@ -886,7 +853,7 @@ mod openssl_tests {
             )
             .unwrap();
 
-            // 22. Verifier creates sub proof request related to GVT credential
+            // 20. Verifier creates sub proof request related to GVT credential
             let mut sub_proof_request_builder = Verifier::new_sub_proof_request_builder().unwrap();
             sub_proof_request_builder.add_revealed_attr("name").unwrap();
             sub_proof_request_builder
@@ -894,7 +861,7 @@ mod openssl_tests {
                 .unwrap();
             let gvt_sub_proof_request = sub_proof_request_builder.finalize().unwrap();
 
-            // 23. Verifier creates sub proof request related to XYZ credential
+            // 21. Verifier creates sub proof request related to XYZ credential
             let mut sub_proof_request_builder = Verifier::new_sub_proof_request_builder().unwrap();
             sub_proof_request_builder
                 .add_revealed_attr("status")
@@ -904,10 +871,10 @@ mod openssl_tests {
                 .unwrap();
             let xyz_sub_proof_request = sub_proof_request_builder.finalize().unwrap();
 
-            // 24. Verifier creates nonce
+            // 22. Verifier creates nonce
             let nonce = new_nonce().unwrap();
 
-            // 25. Prover creates proof for two sub proof requests
+            // 23. Prover creates proof for two sub proof requests
             let mut proof_builder = Prover::new_proof_builder().unwrap();
 
             proof_builder.add_common_attribute(LINK_SECRET).unwrap();
@@ -939,7 +906,7 @@ mod openssl_tests {
 
             let proof = proof_builder.finalize(&nonce).unwrap();
 
-            // 26. Verifier verifies proof
+            // 24. Verifier verifies proof
             let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
             proof_verifier
                 .add_sub_proof_request(
@@ -1180,15 +1147,13 @@ mod openssl_tests {
             // 3. Issuer creates revocation registry with IssuanceOnDemand type
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Issuer creates and sign credential values
             let credential_values =
@@ -1214,7 +1179,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, _rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -1229,19 +1194,8 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
-
-            // 8. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta.unwrap(),
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
@@ -1311,15 +1265,13 @@ mod openssl_tests {
             // 4. Issuer creates GVT revocation registry with IssuanceByDefault type
             let max_cred_num = 5;
             let issuance_by_default = true;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret with credential values
             let credential_values =
@@ -1346,7 +1298,7 @@ mod openssl_tests {
 
             // 8. Issuer creates and sign credential values
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -1361,24 +1313,12 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             assert!(rev_reg_delta.is_none());
+            // let rev_reg_delta = RevocationRegistryDelta::from(&rev_reg);
 
-            let rev_reg_delta = RevocationRegistryDelta::from(&rev_reg);
-
-            // 9. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
-
-            // 10. Prover processes credential signature
+            // 9. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
                 &credential_values,
@@ -1392,13 +1332,13 @@ mod openssl_tests {
             )
             .unwrap();
 
-            // 11. Verifier creates nonce
+            // 10. Verifier creates nonce
             let nonce = new_nonce().unwrap();
 
-            // 12. Verifier create sub proof request
+            // 11. Verifier create sub proof request
             let sub_proof_request = helpers::gvt_sub_proof_request();
 
-            // 13. Prover creates proof
+            // 12. Prover creates proof
             let mut proof_builder = Prover::new_proof_builder().unwrap();
             proof_builder.add_common_attribute(LINK_SECRET).unwrap();
             proof_builder
@@ -1415,7 +1355,7 @@ mod openssl_tests {
                 .unwrap();
             let proof = proof_builder.finalize(&nonce).unwrap();
 
-            // 14. Verifier verifies proof
+            // 13. Verifier verifies proof
             let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
             proof_verifier
                 .add_sub_proof_request(
@@ -2426,34 +2366,28 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_1 = 1;
-            let (mut credential_signature_1, signature_correctness_proof, rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &blinded_credential_secrets,
-                    &blinded_credential_secrets_correctness_proof,
-                    &credential_nonce,
-                    &credential_issuance_nonce,
-                    &credential_values_1,
-                    &credential_pub_key,
-                    &credential_priv_key,
-                    rev_idx_1,
-                    max_cred_num,
-                    issuance_by_default,
-                    &mut rev_reg,
-                    &rev_key_priv,
-                    &simple_tail_accessor,
-                )
-                .unwrap();
-            let mut full_delta = rev_reg_delta.unwrap();
-
-            let mut witness_1 = Witness::new(
+            let (
+                mut credential_signature_1,
+                signature_correctness_proof,
+                mut witness_1,
+                rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &blinded_credential_secrets,
+                &blinded_credential_secrets_correctness_proof,
+                &credential_nonce,
+                &credential_issuance_nonce,
+                &credential_values_1,
+                &credential_pub_key,
+                &credential_priv_key,
                 rev_idx_1,
                 max_cred_num,
                 issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
+                &mut rev_reg,
+                &rev_key_priv,
             )
             .unwrap();
+            let mut full_delta = rev_reg_delta.unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
@@ -2486,7 +2420,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_2 = 2;
-            let (mut credential_signature_2, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_2, signature_correctness_proof, witness_2, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -2501,20 +2435,10 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
 
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_2 = Witness::new(
-                rev_idx_2,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
@@ -2547,7 +2471,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_3 = 3;
-            let (mut credential_signature_3, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_3, signature_correctness_proof, witness_3, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -2562,19 +2486,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_3 = Witness::new(
-                rev_idx_3,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
@@ -2677,7 +2591,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_1 = 1;
-            let (mut credential_signature_1, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_1, signature_correctness_proof, witness_1, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -2692,19 +2606,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             let mut full_delta = rev_reg_delta.unwrap();
-
-            let witness_1 = Witness::new(
-                rev_idx_1,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
@@ -2737,7 +2641,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx_2 = 2;
-            let (mut credential_signature_2, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_2, signature_correctness_proof, witness_2, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -2752,19 +2656,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_2 = Witness::new(
-                rev_idx_2,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
@@ -2796,35 +2690,29 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_3 = 3;
-            let (mut credential_signature_3, signature_correctness_proof, rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &blinded_credential_secrets,
-                    &blinded_credential_secrets_correctness_proof,
-                    &credential_nonce,
-                    &credential_issuance_nonce,
-                    &credential_values,
-                    &credential_pub_key,
-                    &credential_priv_key,
-                    rev_idx_3,
-                    max_cred_num,
-                    issuance_by_default,
-                    &mut rev_reg,
-                    &rev_key_priv,
-                    &simple_tail_accessor,
-                )
-                .unwrap();
-            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-            let mut delta_for_third = RevocationRegistryDelta::from(&rev_reg);
-
-            let mut witness_3 = Witness::new(
+            let (
+                mut credential_signature_3,
+                signature_correctness_proof,
+                mut witness_3,
+                rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &blinded_credential_secrets,
+                &blinded_credential_secrets_correctness_proof,
+                &credential_nonce,
+                &credential_issuance_nonce,
+                &credential_values,
+                &credential_pub_key,
+                &credential_priv_key,
                 rev_idx_3,
                 max_cred_num,
                 issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
+                &mut rev_reg,
+                &rev_key_priv,
             )
             .unwrap();
+            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
+            let mut delta_for_third = RevocationRegistryDelta::from(&rev_reg);
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
@@ -2844,7 +2732,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 max_cred_num,
                 rev_idx_1,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
@@ -2942,35 +2831,29 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_1 = 1;
-            let (mut credential_signature_1, signature_correctness_proof, rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &blinded_credential_secrets,
-                    &blinded_credential_secrets_correctness_proof,
-                    &credential_nonce,
-                    &credential_issuance_nonce,
-                    &credential_values_1,
-                    &credential_pub_key,
-                    &credential_priv_key,
-                    rev_idx_1,
-                    max_cred_num,
-                    issuance_by_default,
-                    &mut rev_reg,
-                    &rev_key_priv,
-                    &simple_tail_accessor,
-                )
-                .unwrap();
-
-            let mut full_delta = rev_reg_delta.unwrap();
-
-            let mut witness_1 = Witness::new(
+            let (
+                mut credential_signature_1,
+                signature_correctness_proof,
+                mut witness_1,
+                rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &blinded_credential_secrets,
+                &blinded_credential_secrets_correctness_proof,
+                &credential_nonce,
+                &credential_issuance_nonce,
+                &credential_values_1,
+                &credential_pub_key,
+                &credential_priv_key,
                 rev_idx_1,
                 max_cred_num,
                 issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
+                &mut rev_reg,
+                &rev_key_priv,
             )
             .unwrap();
+
+            let mut full_delta = rev_reg_delta.unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
@@ -3002,7 +2885,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_2 = 2;
-            let (mut credential_signature_2, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_2, signature_correctness_proof, witness_2, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3017,19 +2900,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_2 = Witness::new(
-                rev_idx_2,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
@@ -3061,7 +2934,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_3 = 3;
-            let (mut credential_signature_3, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_3, signature_correctness_proof, witness_3, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3076,19 +2949,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_3 = Witness::new(
-                rev_idx_3,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
@@ -3108,7 +2971,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 max_cred_num,
                 rev_idx_3,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
@@ -3201,7 +3065,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_1 = 1;
-            let (mut credential_signature_1, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_1, signature_correctness_proof, witness_1, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3216,19 +3080,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             let mut full_delta = rev_reg_delta.unwrap();
-
-            let witness_1 = Witness::new(
-                rev_idx_1,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
@@ -3260,35 +3114,29 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_2 = 2;
-            let (mut credential_signature_2, signature_correctness_proof, rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &blinded_credential_secrets,
-                    &blinded_credential_secrets_correctness_proof,
-                    &credential_nonce,
-                    &credential_issuance_nonce,
-                    &credential_values_2,
-                    &credential_pub_key,
-                    &credential_priv_key,
-                    rev_idx_2,
-                    max_cred_num,
-                    issuance_by_default,
-                    &mut rev_reg,
-                    &rev_key_priv,
-                    &simple_tail_accessor,
-                )
-                .unwrap();
-            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-            let mut delta_for_second = RevocationRegistryDelta::from(&rev_reg);
-
-            let mut witness_2 = Witness::new(
+            let (
+                mut credential_signature_2,
+                signature_correctness_proof,
+                mut witness_2,
+                rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &blinded_credential_secrets,
+                &blinded_credential_secrets_correctness_proof,
+                &credential_nonce,
+                &credential_issuance_nonce,
+                &credential_values_2,
+                &credential_pub_key,
+                &credential_priv_key,
                 rev_idx_2,
                 max_cred_num,
                 issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
+                &mut rev_reg,
+                &rev_key_priv,
             )
             .unwrap();
+            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
+            let mut delta_for_second = RevocationRegistryDelta::from(&rev_reg);
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
@@ -3320,7 +3168,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_3 = 3;
-            let (mut credential_signature_3, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_3, signature_correctness_proof, witness_3, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3335,21 +3183,11 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             let rev_reg_delta = rev_reg_delta.unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
             delta_for_second.merge(&rev_reg_delta).unwrap();
-
-            let witness_3 = Witness::new(
-                rev_idx_3,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
@@ -3369,7 +3207,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 max_cred_num,
                 rev_idx_1,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
@@ -3380,7 +3219,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 max_cred_num,
                 rev_idx_3,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
@@ -3452,15 +3292,13 @@ mod openssl_tests {
             // 3. Issuer creates revocation registry
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Issuer issues first credential
             let master_secret_1 = Prover::new_master_secret().unwrap();
@@ -3479,7 +3317,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_1 = 1;
-            let (mut credential_signature_1, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_1, signature_correctness_proof, witness_1, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3494,19 +3332,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
             let mut full_delta = rev_reg_delta.unwrap();
-
-            let witness_1 = Witness::new(
-                rev_idx_1,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
@@ -3538,7 +3366,7 @@ mod openssl_tests {
             .unwrap();
             let credential_issuance_nonce = new_nonce().unwrap();
             let rev_idx_2 = 2;
-            let (mut credential_signature_2, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature_2, signature_correctness_proof, witness_2, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3553,20 +3381,10 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
 
             full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness_2 = Witness::new(
-                rev_idx_2,
-                max_cred_num,
-                issuance_by_default,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
@@ -3636,15 +3454,13 @@ mod openssl_tests {
             // 3. Issuer creates revocation registry
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -3670,7 +3486,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, _rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3685,21 +3501,10 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
 
-            // 8. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta.unwrap(),
-                &simple_tail_accessor,
-            )
-            .unwrap();
-
-            // 9. Prover processes credential signature
+            // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
                 &credential_values,
@@ -3713,13 +3518,13 @@ mod openssl_tests {
             )
             .unwrap();
 
-            // 10. Verifier creates nonce
+            // 9. Verifier creates nonce
             let nonce = new_nonce().unwrap();
 
-            // 11. Verifier create sub proof request
+            // 10. Verifier create sub proof request
             let sub_proof_request = helpers::gvt_sub_proof_request();
 
-            // 12. Prover creates proof
+            // 11. Prover creates proof
             let mut proof_builder = Prover::new_proof_builder().unwrap();
             proof_builder.add_common_attribute("master_secret").unwrap();
             proof_builder
@@ -3736,11 +3541,17 @@ mod openssl_tests {
                 .unwrap();
             let proof = proof_builder.finalize(&nonce).unwrap();
 
-            // 14. Issuer revokes credential used for proof building
-            Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor)
-                .unwrap();
+            // 12. Issuer revokes credential used for proof building
+            Issuer::revoke_credential(
+                &mut rev_reg,
+                max_cred_num,
+                rev_idx,
+                &credential_pub_key,
+                &rev_key_priv,
+            )
+            .unwrap();
 
-            // 15. Verifier verifies proof
+            // 13. Verifier verifies proof
             let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
             proof_verifier
                 .add_sub_proof_request(
@@ -3771,15 +3582,13 @@ mod openssl_tests {
             // 3. Issuer creates revocation registry
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -3805,7 +3614,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, _rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3820,19 +3629,8 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
-
-            // 9. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta.unwrap(),
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
@@ -3855,8 +3653,14 @@ mod openssl_tests {
             let sub_proof_request = helpers::gvt_sub_proof_request();
 
             // 13. Issuer revokes credential
-            Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor)
-                .unwrap();
+            Issuer::revoke_credential(
+                &mut rev_reg,
+                max_cred_num,
+                rev_idx,
+                &credential_pub_key,
+                &rev_key_priv,
+            )
+            .unwrap();
 
             // 14. Prover creates proof
             let mut proof_builder = Prover::new_proof_builder().unwrap();
@@ -3906,15 +3710,13 @@ mod openssl_tests {
             // 3. Issuer creates revocation registry
             let max_cred_num = 5;
             let issuance_by_default = true;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -3940,7 +3742,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -3955,22 +3757,9 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
-
             assert!(rev_reg_delta.is_none());
-            let rev_reg_delta = RevocationRegistryDelta::from(&rev_reg);
-
-            // 9. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
@@ -3993,8 +3782,14 @@ mod openssl_tests {
             let sub_proof_request = helpers::gvt_sub_proof_request();
 
             // 13. Issuer revokes credential
-            Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor)
-                .unwrap();
+            Issuer::revoke_credential(
+                &mut rev_reg,
+                max_cred_num,
+                rev_idx,
+                &credential_pub_key,
+                &rev_key_priv,
+            )
+            .unwrap();
 
             // 14. Prover creates proof
             let mut proof_builder = Prover::new_proof_builder().unwrap();
@@ -4029,7 +3824,7 @@ mod openssl_tests {
         }
 
         #[test]
-        fn anoncreds_works_for_recovery_credential() {
+        fn anoncreds_works_for_unrevoked_credential() {
             // HLCryptoDefaultLogger::init(None).ok();
 
             // 1. Issuer creates credential schema
@@ -4044,15 +3839,13 @@ mod openssl_tests {
             // 4. Issuer creates revocation registry with IssuanceOnDemand type
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -4078,7 +3871,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, _rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -4093,19 +3886,8 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
-
-            // 8. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta.unwrap(),
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
@@ -4159,8 +3941,14 @@ mod openssl_tests {
             assert!(proof_verifier.verify(&proof, &nonce).unwrap());
 
             // 14. Issuer revokes credential
-            Issuer::revoke_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor)
-                .unwrap();
+            Issuer::revoke_credential(
+                &mut rev_reg,
+                max_cred_num,
+                rev_idx,
+                &credential_pub_key,
+                &rev_key_priv,
+            )
+            .unwrap();
 
             // 15. Verifier verifies proof (Proof is not valid)
             let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
@@ -4177,9 +3965,15 @@ mod openssl_tests {
                 .unwrap();
             assert_eq!(false, proof_verifier.verify(&proof, &nonce).unwrap());
 
-            // 16. Issuer recoveries credential
-            Issuer::recovery_credential(&mut rev_reg, max_cred_num, rev_idx, &simple_tail_accessor)
-                .unwrap();
+            // 16. Issuer unrevokes credential
+            Issuer::unrevoke_credential(
+                &mut rev_reg,
+                max_cred_num,
+                rev_idx,
+                &credential_pub_key,
+                &rev_key_priv,
+            )
+            .unwrap();
 
             // 17. Verifier verifies proof (Proof is valid again)
             let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
@@ -4213,15 +4007,13 @@ mod openssl_tests {
             // 4. Issuer creates revocation registry with IssuanceOnDemand type
             let max_cred_num = 5;
             let issuance_by_default = false;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(
                     &credential_pub_key,
                     max_cred_num,
                     issuance_by_default,
                 )
                 .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -4247,7 +4039,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             let rev_idx = 1;
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, _rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -4262,19 +4054,8 @@ mod openssl_tests {
                     issuance_by_default,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
-
-            // 8. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                issuance_by_default,
-                &rev_reg_delta.unwrap(),
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
@@ -4335,7 +4116,8 @@ mod openssl_tests {
                 max_cred_num,
                 BTreeSet::new(),
                 revoked.clone(),
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
 
@@ -4354,13 +4136,14 @@ mod openssl_tests {
                 .unwrap();
             assert_eq!(false, proof_verifier.verify(&proof, &nonce).unwrap());
 
-            // 16. Issuer recovers credential
+            // 16. Issuer unrevokes credential
             Issuer::update_revocation_registry(
                 &mut rev_reg,
                 max_cred_num,
                 revoked.clone(),
                 BTreeSet::new(),
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
 
@@ -4396,11 +4179,9 @@ mod openssl_tests {
 
             // 3. Issuer creates revocation registry for only 1 credential
             let max_cred_num = 1;
-            let (_, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (_, rev_key_priv, mut rev_reg, _rev_tails_generator) =
                 Issuer::new_revocation_registry_def(&credential_pub_key, max_cred_num, false)
                     .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Prover creates master secret
             let master_secret = Prover::new_master_secret().unwrap();
@@ -4436,7 +4217,6 @@ mod openssl_tests {
                 false,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             )
             .unwrap();
 
@@ -4455,7 +4235,6 @@ mod openssl_tests {
                 false,
                 &mut rev_reg,
                 &rev_key_priv,
-                &simple_tail_accessor,
             );
             // assert_eq!(
             //     ErrorKind::RevocationAccumulatorIsFull,
@@ -4479,11 +4258,9 @@ mod openssl_tests {
 
             // 3. Issuer creates revocation registry
             let max_cred_num = 1;
-            let (rev_key_pub, rev_key_priv, mut rev_reg, mut rev_tails_generator) =
+            let (rev_key_pub, rev_key_priv, mut rev_reg, _) =
                 Issuer::new_revocation_registry_def(&credential_pub_key, max_cred_num, false)
                     .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             let rev_idx = 1;
 
@@ -4512,7 +4289,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             // 8. Issuer creates and signs credential values
-            let (mut credential_signature, signature_correctness_proof, rev_reg_delta) =
+            let (mut credential_signature, signature_correctness_proof, witness, rev_reg_delta) =
                 Issuer::sign_credential_with_revoc(
                     PROVER_ID,
                     &blinded_credential_secrets,
@@ -4527,21 +4304,10 @@ mod openssl_tests {
                     false,
                     &mut rev_reg,
                     &rev_key_priv,
-                    &simple_tail_accessor,
                 )
                 .unwrap();
 
             let mut full_delta = rev_reg_delta.unwrap();
-
-            // 9. Prover creates witness
-            let witness = Witness::new(
-                rev_idx,
-                max_cred_num,
-                false,
-                &full_delta,
-                &simple_tail_accessor,
-            )
-            .unwrap();
 
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
@@ -4600,7 +4366,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 rev_idx,
                 max_cred_num,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             )
             .unwrap();
             full_delta.merge(&rev_reg_delta).unwrap();
@@ -4662,34 +4429,28 @@ mod openssl_tests {
                 .unwrap();
             let credential_values = credential_values_builder.finalize().unwrap();
 
-            let (mut new_credential_signature, new_signature_correctness_proof, rev_reg_delta) =
-                Issuer::sign_credential_with_revoc(
-                    PROVER_ID,
-                    &new_blinded_credential_secrets,
-                    &new_blinded_credential_secrets_correctness_proof,
-                    &new_credential_nonce,
-                    &new_credential_issuance_nonce,
-                    &credential_values,
-                    &credential_pub_key,
-                    &credential_priv_key,
-                    rev_idx,
-                    max_cred_num,
-                    false,
-                    &mut rev_reg,
-                    &rev_key_priv,
-                    &simple_tail_accessor,
-                )
-                .unwrap();
-            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
-
-            let witness = Witness::new(
+            let (
+                mut new_credential_signature,
+                new_signature_correctness_proof,
+                witness,
+                rev_reg_delta,
+            ) = Issuer::sign_credential_with_revoc(
+                PROVER_ID,
+                &new_blinded_credential_secrets,
+                &new_blinded_credential_secrets_correctness_proof,
+                &new_credential_nonce,
+                &new_credential_issuance_nonce,
+                &credential_values,
+                &credential_pub_key,
+                &credential_priv_key,
                 rev_idx,
                 max_cred_num,
                 false,
-                &full_delta,
-                &simple_tail_accessor,
+                &mut rev_reg,
+                &rev_key_priv,
             )
             .unwrap();
+            full_delta.merge(&rev_reg_delta.unwrap()).unwrap();
 
             // 20. Prover processes new credential signature
             Prover::process_credential_signature(
@@ -5198,11 +4959,9 @@ mod openssl_tests {
 
             // 3. Issuer creates revocation registry
             let max_cred_num = 5;
-            let (_, _, mut rev_reg, mut rev_tails_generator) =
+            let (_, rev_key_priv, mut rev_reg, _) =
                 Issuer::new_revocation_registry_def(&credential_pub_key, max_cred_num, false)
                     .unwrap();
-
-            let simple_tail_accessor = SimpleTailsAccessor::new(&mut rev_tails_generator).unwrap();
 
             // 4. Issuer tries revoke not not added index
             let rev_idx = 1;
@@ -5210,7 +4969,8 @@ mod openssl_tests {
                 &mut rev_reg,
                 max_cred_num,
                 rev_idx,
-                &simple_tail_accessor,
+                &credential_pub_key,
+                &rev_key_priv,
             );
             // assert_eq!(
             //     ErrorKind::InvalidRevocationAccumulatorIndex,

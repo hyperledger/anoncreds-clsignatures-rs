@@ -756,7 +756,7 @@ impl Issuer {
         Ok(rev_reg_delta)
     }
 
-    pub fn _update_revocation_accumulator(
+    pub(crate) fn _update_revocation_accumulator(
         accum: PointG2,
         max_cred_num: u32,
         updates: impl IntoIterator<Item = (u32, bool)>,

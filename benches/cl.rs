@@ -185,6 +185,7 @@ fn setup_cred_and_issue(
 
 fn gen_proofs(
     max_cred_num: u32,
+    issuance_by_default: bool,
     credential_schema: &CredentialSchema,
     non_credential_schema: &NonCredentialSchema,
     credential_pub_key: &CredentialPublicKey,
@@ -197,21 +198,33 @@ fn gen_proofs(
 ) -> Vec<Proof> {
     let mut proofs = Vec::with_capacity(nonces.len());
     let mut total_witness_gen = Duration::new(0, 0);
+    let mut total_witness_update = Duration::new(0, 0);
     let mut total_proving = Duration::new(0, 0);
     for i in 0..nonces.len() {
         let (rev_idx, ref credential_values, ref credential_signature, ref mut witness) =
             prover_data[i as usize];
 
-        let mut start = Instant::now();
+        let start = Instant::now();
+        let _ = Witness::new(
+            rev_idx,
+            max_cred_num,
+            issuance_by_default,
+            rev_reg_delta,
+            simple_tail_accessor,
+        )
+        .unwrap();
+        total_witness_gen += start.elapsed();
+
+        let start = Instant::now();
         witness
             .update(rev_idx, max_cred_num, rev_reg_delta, simple_tail_accessor)
             .unwrap();
-        total_witness_gen += start.elapsed();
+        total_witness_update += start.elapsed();
 
         let mut proof_builder = Prover::new_proof_builder().unwrap();
         proof_builder.add_common_attribute("master_secret").unwrap();
 
-        start = Instant::now();
+        let start = Instant::now();
         proof_builder
             .add_sub_proof_request(
                 sub_proof_request,
@@ -229,9 +242,14 @@ fn gen_proofs(
     }
 
     println!(
-        "Total witness update time for {} is {:.2?}",
+        "Total witness generation time for {} is {:.2?}",
         nonces.len(),
         total_witness_gen
+    );
+    println!(
+        "Total witness update time for {} is {:.2?}",
+        nonces.len(),
+        total_witness_update
     );
     println!(
         "Total proving time for {} is {:.2?}",
@@ -266,6 +284,7 @@ fn main() {
     let mut start = Instant::now();
     let proofs = gen_proofs(
         max_cred_num,
+        issuance_by_default,
         &credential_schema,
         &non_credential_schema,
         &credential_pub_key,

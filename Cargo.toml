@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["serde", "openssl_bn"]
 openssl_bn = ["openssl"]
-openssl_vendored = ["openssl/vendored"]
+openssl_vendored = ["openssl_bn", "openssl/vendored"]
 
 [dependencies]
 amcl = "0.2"

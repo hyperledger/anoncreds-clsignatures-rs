@@ -3,6 +3,7 @@
 use amcl::bn254::big::BIG;
 use amcl::bn254::ecp::ECP;
 use amcl::bn254::ecp2::ECP2;
+use amcl::bn254::fp::FP;
 use amcl::bn254::fp12::FP12;
 use amcl::bn254::fp2::FP2;
 use amcl::bn254::pair::{ate, ate2, fexp, g1mul, g2mul, gtpow};
@@ -142,10 +143,14 @@ impl PointG1 {
         Ok(self.point.to_hex())
     }
 
-    pub fn from_string(str: &str) -> ClResult<PointG1> {
-        Ok(PointG1 {
-            point: ECP::from_hex(str.to_string()),
-        })
+    pub fn from_string(val: &str) -> ClResult<PointG1> {
+        pre_validate_point(val, 3)?;
+        let mut point = ECP::from_hex(val.to_string());
+        if is_valid_ecp(&point) {
+            Ok(PointG1 { point })
+        } else {
+            Err(err_msg!("Invalid PointG1"))
+        }
     }
 
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
@@ -256,6 +261,11 @@ impl PointG2 {
         Ok(PointG2 { point })
     }
 
+    /// Checks infinity
+    pub fn is_inf(&self) -> ClResult<bool> {
+        Ok(self.point.is_infinity())
+    }
+
     /// PointG2 * PointG2
     pub fn add(&self, q: &PointG2) -> ClResult<PointG2> {
         let mut r = self.point;
@@ -293,10 +303,14 @@ impl PointG2 {
         Ok(self.point.to_hex())
     }
 
-    pub fn from_string(str: &str) -> ClResult<PointG2> {
-        Ok(PointG2 {
-            point: ECP2::from_hex(str.to_string()),
-        })
+    pub fn from_string(val: &str) -> ClResult<PointG2> {
+        pre_validate_point(val, 6)?;
+        let mut point = ECP2::from_hex(val.to_string());
+        if is_valid_ecp2(&point) {
+            Ok(PointG2 { point })
+        } else {
+            Err(err_msg!("Invalid PointG2"))
+        }
     }
 
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
@@ -559,6 +573,12 @@ impl Pair {
         Ok(Self { pair: result })
     }
 
+    pub fn new_unity() -> ClResult<Self> {
+        Ok(Self {
+            pair: FP12::new_int(1),
+        })
+    }
+
     /// e() * e()
     pub fn mul(&self, b: &Pair) -> ClResult<Pair> {
         let mut base = self.pair;
@@ -589,10 +609,14 @@ impl Pair {
         Ok(self.pair.to_hex())
     }
 
-    pub fn from_string(str: &str) -> ClResult<Pair> {
-        Ok(Pair {
-            pair: FP12::from_hex(str.to_string()),
-        })
+    pub fn from_string(val: &str) -> ClResult<Pair> {
+        pre_validate_point(val, 12)?;
+        let pair = FP12::from_hex(val.to_string());
+        if is_valid_pair(&pair) {
+            Ok(Pair { pair })
+        } else {
+            Err(err_msg!("Invalid pair"))
+        }
     }
 
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
@@ -647,6 +671,111 @@ impl<'a> Deserialize<'a> for Pair {
 
         deserializer.deserialize_str(PairVisitor)
     }
+}
+
+fn pre_validate_point(val: &str, components: usize) -> ClResult<()> {
+    let mut parts = val.split_ascii_whitespace();
+    let mut idx = 0;
+    let valid = loop {
+        if idx == components {
+            break parts.next().is_none();
+        }
+        if let Some(idx) = parts.next() {
+            match idx.parse::<u32>() {
+                Ok(0) | Err(_) => break false,
+                Ok(_) => {}
+            }
+        } else {
+            break false;
+        }
+        if let Some(hex) = parts.next() {
+            if validate_hex(hex.as_bytes()).is_none() {
+                break false;
+            }
+        } else {
+            break false;
+        }
+        idx += 1;
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(err_msg!("Invalid point value"))
+    }
+}
+
+const fn validate_hex(bytes: &[u8]) -> Option<usize> {
+    let mut i = 0;
+    while i < bytes.len() {
+        if !matches!(bytes[i], b'0'..=b'9' | b'a' ..= b'f' | b'A'..=b'F') {
+            return None;
+        }
+        i += 1;
+    }
+    Some((bytes.len() + 1) / 2)
+}
+
+fn is_valid_ecp(point: &ECP) -> bool {
+    // validate point without inverting z:
+    // (y/z)^2 = (x/z)^3 + b  -->  y^2z = x^3 + bz^3
+    let (x, mut z) = (point.getpx(), point.getpz());
+    let mut lhs = point.getpy();
+    lhs.reduce();
+    lhs.sqr();
+    lhs.mul(&z);
+    let mut rhs = x;
+    rhs.reduce();
+    rhs.sqr();
+    rhs.mul(&x);
+    lhs.sub(&rhs);
+    rhs.copy(&z);
+    rhs.reduce();
+    rhs.sqr();
+    rhs.mul(&z);
+    rhs.dbl(); // b = 2
+    lhs.equals(&rhs) || point.is_infinity()
+}
+
+fn is_valid_ecp2(point: &ECP2) -> bool {
+    // validate point without inverting z:
+    // (y/z)^2 = (x/z)^3 + b'  -->  y^2z = x^3 + b'z^3
+    let (x, mut z) = (point.getpx(), point.getpz());
+    let mut lhs = point.getpy();
+    lhs.reduce();
+    lhs.norm();
+    lhs.sqr();
+    lhs.norm();
+    lhs.mul(&z);
+    let mut rhs = x;
+    rhs.reduce();
+    rhs.sqr();
+    rhs.mul(&x);
+    lhs.sub(&rhs);
+    rhs.copy(&z);
+    rhs.reduce();
+    rhs.sqr();
+    rhs.mul(&z);
+    let bp = FP2::new_fps(&FP::new_int(1), &FP::new_int(-1)); // b' = b/ξ = 1 - i
+    rhs.mul(&bp);
+    lhs.equals(&rhs) || point.is_infinity()
+}
+
+fn is_valid_pair(point: &FP12) -> bool {
+    // Subgroup security in pairing-based cryptography
+    // Section 5.2  https://eprint.iacr.org/2015/247
+    // Check that g^(p^4 - p^2 + 1) = 1  ==>  g^p^4 * g == g^p^2
+    let f = FP2::new_bigs(
+        &BIG::new_ints(&amcl::bn254::rom::FRA),
+        &BIG::new_ints(&amcl::bn254::rom::FRB),
+    );
+    let mut lhs = *point;
+    lhs.frob(&f);
+    lhs.frob(&f);
+    let mut rhs = lhs;
+    rhs.frob(&f);
+    rhs.frob(&f);
+    rhs.mul(&point);
+    lhs.equals(&rhs)
 }
 
 #[cfg(test)]
@@ -765,24 +894,35 @@ mod serialization_tests {
     #[test]
     fn serialize_deserialize_works_for_point_g1() {
         let structure = TestPointG1Structure {
-            field: PointG1::from_string("1 09181F00DD41F2F92026FC20E189DE31926EEE6E05C6A17E676556E08075C6 1 09BC971251F977993486B19600760C4F972925D98934EA6B2D0BEC671398C0 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8").unwrap()
+            field: PointG1::from_string("1 1D18E69FA5AA97421F4AEBE933B40264261C5440090222C6AC61FEBE2CFEAA04 1 1461756FB88E41A2CB508A7057318CAFB551F4CD0C7051CBEC23DDFBC92248BC 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8").unwrap()
         };
-
         let deserialized: TestPointG1Structure =
             serde_json::from_str(&serde_json::to_string(&structure).unwrap()).unwrap();
-
         assert_eq!(structure, deserialized);
+
+        // check invalid input
+        assert!(PointG1::from_string(",").is_err());
+        // check non-subgroup point
+        assert!(PointG1::from_string("1 09181F00DD41F2F92026FC20E189DE31926EEE6E05C6A17E676556E08075C6 1 09BC971251F977993486B19600760C4F972925D98934EA6B2D0BEC671398C0 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8").is_err());
+        // check infinity
+        assert!(PointG1::from_string("1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap().is_inf().unwrap());
     }
 
     #[test]
     fn deserialize_works_for_point_g2() {
         let structure = TestPointG2Structure {
-            field: PointG2::from_string("1 16027A65C15E16E00BFCAD948F216B5CFBE07B98876D8889A5DEE03DE7C57B 1 0EC9DBC2286A9485A0DA8525C5BE0F88E27C2B3C337E522DDC170C1764D615 1 1A021C8EFE70DCC7F81DD8E8CDC74F3D64E63E886C73B3A8B9849696E99FF3 1 2505CB0CFAAE75ACCAF60CB5A9F7E7A8250918155886E7FFF9A32D7B5A0500 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8 1 00000000000000000000000000000000000000000000000000000000000000").unwrap()
+            field: PointG2::from_string("1 1045C93522D11FB9EB69396032EEA008B857C7F8B3F2981C9917B1DFA8A00EC9 1 01AD44557A4240BB570FB94B33746C272CF921F33B4910B111F1CA48FCE34FC2 1 2265EAFAED9C22CD76C2FBD6FC3B88414B6B66FB4E31FCD1ED6AADE25A9D31EB 1 234B062F5159CB2E0782CFB75478E45D46EBF0F21E3CE7A2CD758687A73D5D08 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap()
         };
         let deserialized: TestPointG2Structure =
             serde_json::from_str(&serde_json::to_string(&structure).unwrap()).unwrap();
-
         assert_eq!(structure, deserialized);
+
+        // check invalid input
+        assert!(PointG2::from_string(",").is_err());
+        // check non-subgroup point
+        assert!(PointG2::from_string("1 16027A65C15E16E00BFCAD948F216B5CFBE07B98876D8889A5DEE03DE7C57B 1 0EC9DBC2286A9485A0DA8525C5BE0F88E27C2B3C337E522DDC170C1764D615 1 1A021C8EFE70DCC7F81DD8E8CDC74F3D64E63E886C73B3A8B9849696E99FF3 1 2505CB0CFAAE75ACCAF60CB5A9F7E7A8250918155886E7FFF9A32D7B5A0500 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8 1 00000000000000000000000000000000000000000000000000000000000000").is_err());
+        // check infinity
+        assert!(PointG2::from_string("1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap().is_inf().unwrap());
     }
 
     #[test]
@@ -797,17 +937,23 @@ mod serialization_tests {
     #[test]
     fn serialize_deserialize_works_for_pair() {
         let point_g1 = PointG1 {
-            point: PointG1::from_string("1 01FC3950C5B03061739A4621E205643FDCC1BFE2AC0F2996F46944F7AC340B 1 1056E3F5EE2EA7F7E340764B7BE8A38AAFE66C25573880810726812069BB11 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8").unwrap().point
+            point: PointG1::from_string("1 1D18E69FA5AA97421F4AEBE933B40264261C5440090222C6AC61FEBE2CFEAA04 1 1461756FB88E41A2CB508A7057318CAFB551F4CD0C7051CBEC23DDFBC92248BC 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8").unwrap().point
         };
         let point_g2 = PointG2 {
-            point: PointG2::from_string("1 16027A65C15E16E00BFCAD948F216B5CFBE07B98876D8889A5DEE03DE7C57B 1 0EC9DBC2286A9485A0DA8525C5BE0F88E27C2B3C337E522DDC170C1764D615 1 1A021C8EFE70DCC7F81DD8E8CDC74F3D64E63E886C73B3A8B9849696E99FF3 1 2505CB0CFAAE75ACCAF60CB5A9F7E7A8250918155886E7FFF9A32D7B5A0500 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8 1 00000000000000000000000000000000000000000000000000000000000000").unwrap().point
+            point: PointG2::from_string("1 1045C93522D11FB9EB69396032EEA008B857C7F8B3F2981C9917B1DFA8A00EC9 1 01AD44557A4240BB570FB94B33746C272CF921F33B4910B111F1CA48FCE34FC2 1 2265EAFAED9C22CD76C2FBD6FC3B88414B6B66FB4E31FCD1ED6AADE25A9D31EB 1 234B062F5159CB2E0782CFB75478E45D46EBF0F21E3CE7A2CD758687A73D5D08 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap().point
         };
         let pair = TestPairStructure {
             field: Pair::pair(&point_g1, &point_g2).unwrap(),
         };
         let deserialized: TestPairStructure =
             serde_json::from_str(&serde_json::to_string(&pair).unwrap()).unwrap();
-
         assert_eq!(pair, deserialized);
+
+        // check invalid input
+        assert!(Pair::from_string(",").is_err());
+        // check non-subgroup point
+        assert!(Pair::from_string("1 1A0FB1F80E3C1FB1D99656B1B6DDF183D5EF4760838C68B088E892C846B7DC2C 1 1235B7EF46F16A30D6481B2A63E672EBCD931DFE1FE8B4101EA6F8A65FBDCD05 1 02CFBC531AD1C591ACC4F90806D4C8D1D2E7CA1701281076E62DFDFCB743ED0F 1 2472470CB4C5E83208F7CB8FA1C2AFE168CE964EAC3AA0F00D0F851B9BFD640B 1 15010B4BD62468BB8D19513CA350D731E47E034570164DFAE0939F2540FE6132 1 145BB54DDFB66D9C48655F9F7700CC2A341A7BB0B73BA0271927D23A1C9F80A0 1 236FB4C3A3500BF02E7A95A8041ED9C789D57DE3EB9952F773EF8C35953B1FA9 1 152902DA32832510A0DBDE0BE32F6E0DC01374D0DA5B00B30E7A5DFEDF9DE0C7 1 15A9F25FC4079A513FA5B1982AE2808F5D577A8CAE17A030B03B3B10E4606449 1 0CCF8D3EF066E5C4C79106F0A4A5490DD69507161510E56CA43FA304277D2DC7 1 14AB69814995CABA1A07C0B5F8A75B27074CA5CD4213974007B866E0BFE3CA06 1 0151272518EBB8E894FEFB11E19BB4D748F31213DB50454659E1011C2B73FC7C").is_err());
+        // check unity
+        assert!(Pair::from_string("2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap().is_unity().unwrap());
     }
 }

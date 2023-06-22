@@ -996,11 +996,10 @@ impl Issuer {
 
         let gamma = GroupOrderElement::new()?;
 
-        let mut z = Pair::pair(&cred_rev_pub_key.g, &cred_rev_pub_key.g_dash)?;
         let mut pow =
             GroupOrderElement::from_bytes(&transform_u32_to_array_of_u8(max_cred_num + 1))?;
         pow = gamma.pow_mod(&pow)?;
-        z = z.pow(&pow)?;
+        let z = Pair::pair(&cred_rev_pub_key.g.mul(&pow)?, &cred_rev_pub_key.g_dash)?;
 
         let rev_key_pub = RevocationKeyPublic { z };
         let rev_key_priv = RevocationKeyPrivate { gamma };

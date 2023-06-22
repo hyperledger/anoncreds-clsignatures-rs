@@ -535,19 +535,23 @@ pub fn create_tau_list_expected_values(
 
     let t1 = proof_c.e;
     let t2 = PointG1::new_inf()?;
-    let t3 = Pair::pair(&r_pub_key.h0.add(&proof_c.g)?, &r_pub_key.h_cap)?
-        .mul(&Pair::pair(&proof_c.a, &r_pub_key.y)?.inverse()?)?;
-    let t4 = Pair::pair(&proof_c.g, &rev_reg.accum)?.mul(
-        &Pair::pair(&r_pub_key.g, &proof_c.w)?
-            .mul(&rev_acc_pub_key.z)?
-            .inverse()?,
+    let t3 = Pair::pair2(
+        &r_pub_key.h0.add(&proof_c.g)?,
+        &r_pub_key.h_cap,
+        &proof_c.a.neg()?,
+        &r_pub_key.y,
     )?;
+    let t4 = Pair::pair2(&proof_c.g, &rev_reg.accum, &r_pub_key.g.neg()?, &proof_c.w)?
+        .mul(&rev_acc_pub_key.z.inverse()?)?;
     let t5 = proof_c.d;
     let t6 = PointG1::new_inf()?;
-    let t7 = Pair::pair(&r_pub_key.pk.add(&proof_c.g)?, &proof_c.s)?
-        .mul(&Pair::pair(&r_pub_key.g, &r_pub_key.g_dash)?.inverse()?)?;
-    let t8 = Pair::pair(&proof_c.g, &r_pub_key.u)?
-        .mul(&Pair::pair(&r_pub_key.g, &proof_c.u)?.inverse()?)?;
+    let t7 = Pair::pair2(
+        &r_pub_key.pk.add(&proof_c.g)?,
+        &proof_c.s,
+        &r_pub_key.g.neg()?,
+        &r_pub_key.g_dash,
+    )?;
+    let t8 = Pair::pair2(&proof_c.g, &r_pub_key.u, &r_pub_key.g.neg()?, &proof_c.u)?;
 
     let non_revoc_proof_tau_list = NonRevocProofTauList {
         t1,
@@ -584,25 +588,28 @@ pub fn create_tau_list_values(
     let mut t2 = proof_c
         .e
         .mul(&params.c)?
-        .add(&r_pub_key.h.mul(&params.m.mod_neg()?)?)?
-        .add(&r_pub_key.htilde.mul(&params.t.mod_neg()?)?)?;
+        .sub(&r_pub_key.h.mul(&params.m)?)?
+        .sub(&r_pub_key.htilde.mul(&params.t)?)?;
     if t2.is_inf()? {
         t2 = PointG1::new_inf()?;
     }
-    let t3 = Pair::pair(&proof_c.a, &r_pub_key.h_cap)?
-        .pow(&params.c)?
-        .mul(&Pair::pair(&r_pub_key.htilde, &r_pub_key.h_cap)?.pow(&params.r)?)?
-        .mul(
-            &Pair::pair(&r_pub_key.htilde, &r_pub_key.y)?
-                .pow(&params.rho)?
-                .mul(&Pair::pair(&r_pub_key.htilde, &r_pub_key.h_cap)?.pow(&params.m)?)?
-                .mul(&Pair::pair(&r_pub_key.h1, &r_pub_key.h_cap)?.pow(&params.m2)?)?
-                .mul(&Pair::pair(&r_pub_key.h2, &r_pub_key.h_cap)?.pow(&params.s)?)?
-                .inverse()?,
-        )?;
-    let t4 = Pair::pair(&r_pub_key.htilde, &rev_reg.accum)?
-        .pow(&params.r)?
-        .mul(&Pair::pair(&r_pub_key.g.neg()?, &r_pub_key.h_cap)?.pow(&params.r_prime)?)?;
+    let t3 = Pair::pair2(
+        &proof_c
+            .a
+            .mul(&params.c)?
+            .add(&r_pub_key.htilde.mul(&params.r.sub_mod(&params.m)?)?)?
+            .sub(&r_pub_key.h1.mul(&params.m2)?)?
+            .sub(&r_pub_key.h2.mul(&params.s)?)?,
+        &r_pub_key.h_cap,
+        &r_pub_key.htilde.mul(&params.rho)?.neg()?,
+        &r_pub_key.y,
+    )?;
+    let t4 = Pair::pair2(
+        &r_pub_key.htilde.mul(&params.r)?,
+        &rev_reg.accum,
+        &r_pub_key.g.mul(&params.r_prime)?.neg()?,
+        &r_pub_key.h_cap,
+    )?;
     let t5 = r_pub_key
         .g
         .mul(&params.r)?
@@ -610,20 +617,27 @@ pub fn create_tau_list_values(
     let mut t6 = proof_c
         .d
         .mul(&params.r_prime_prime)?
-        .add(&r_pub_key.g.mul(&params.m_prime.mod_neg()?)?)?
-        .add(&r_pub_key.htilde.mul(&params.t_prime.mod_neg()?)?)?;
+        .sub(&r_pub_key.g.mul(&params.m_prime)?)?
+        .sub(&r_pub_key.htilde.mul(&params.t_prime)?)?;
     if t6.is_inf()? {
         t6 = PointG1::new_inf()?;
     }
-    let t7 = Pair::pair(&r_pub_key.pk.add(&proof_c.g)?, &r_pub_key.h_cap)?
-        .pow(&params.r_prime_prime)?
-        .mul(&Pair::pair(&r_pub_key.htilde, &r_pub_key.h_cap)?.pow(&params.m_prime.mod_neg()?)?)?
-        .mul(&Pair::pair(&r_pub_key.htilde, &proof_c.s)?.pow(&params.r)?)?;
-    let t8 = Pair::pair(&r_pub_key.htilde, &r_pub_key.u)?
-        .pow(&params.r)?
-        .mul(
-            &Pair::pair(&r_pub_key.g.neg()?, &r_pub_key.h_cap)?.pow(&params.r_prime_prime_prime)?,
-        )?;
+    let t7 = Pair::pair2(
+        &r_pub_key
+            .pk
+            .add(&proof_c.g)?
+            .mul(&params.r_prime_prime)?
+            .sub(&r_pub_key.htilde.mul(&params.m_prime)?)?,
+        &r_pub_key.h_cap,
+        &r_pub_key.htilde.mul(&params.r)?,
+        &proof_c.s,
+    )?;
+    let t8 = Pair::pair2(
+        &r_pub_key.htilde.mul(&params.r)?,
+        &r_pub_key.u,
+        &r_pub_key.g.mul(&params.r_prime_prime_prime)?.neg()?,
+        &r_pub_key.h_cap,
+    )?;
 
     let non_revoc_proof_tau_list = NonRevocProofTauList {
         t1,

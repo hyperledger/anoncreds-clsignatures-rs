@@ -1200,7 +1200,6 @@ pub struct NonRevocProofXList {
     pub(crate) m_prime: GroupOrderElement,
     pub(crate) t: GroupOrderElement,
     pub(crate) t_prime: GroupOrderElement,
-    pub(crate) m2: GroupOrderElement,
     pub(crate) s: GroupOrderElement,
     pub(crate) c: GroupOrderElement,
 }
@@ -1216,7 +1215,6 @@ impl NonRevocProofXList {
             self.m_prime,
             self.t,
             self.t_prime,
-            self.m2,
             self.s,
             self.r,
             self.r_prime,
@@ -1228,18 +1226,17 @@ impl NonRevocProofXList {
     pub fn from_list(seq: &[GroupOrderElement]) -> NonRevocProofXList {
         NonRevocProofXList {
             rho: seq[0],
-            r: seq[10],
-            r_prime: seq[11],
-            r_prime_prime: seq[12],
-            r_prime_prime_prime: seq[13],
+            r: seq[9],
+            r_prime: seq[10],
+            r_prime_prime: seq[11],
+            r_prime_prime_prime: seq[12],
             o: seq[1],
             o_prime: seq[3],
             m: seq[4],
             m_prime: seq[5],
             t: seq[6],
             t_prime: seq[7],
-            m2: seq[8],
-            s: seq[9],
+            s: seq[8],
             c: seq[2],
         }
     }

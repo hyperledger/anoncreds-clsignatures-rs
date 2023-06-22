@@ -933,7 +933,7 @@ impl ProofBuilder {
         )?;
 
         let mut non_revoc_init_proof = None;
-        let mut m2_tilde: Option<BigNumber> = None;
+        let m2_tilde: BigNumber = bn_rand(LARGE_M2TILDE)?;
 
         if let (&Some(ref r_cred), &Some(r_reg), &Some(ref r_pub_key), &Some(witness)) = (
             &credential_signature.r_credential,
@@ -941,12 +941,11 @@ impl ProofBuilder {
             &credential_pub_key.r_key,
             &witness,
         ) {
-            let proof =
-                ProofBuilder::_init_non_revocation_proof(r_cred, r_reg, r_pub_key, witness)?;
-
+            let proof = ProofBuilder::_init_non_revocation_proof(
+                r_cred, r_reg, r_pub_key, witness, &m2_tilde,
+            )?;
             self.c_list.extend_from_slice(&proof.as_c_list()?);
             self.tau_list.extend_from_slice(&proof.as_tau_list()?);
-            m2_tilde = Some(group_element_to_bignum(&proof.tau_list_params.m2)?);
             non_revoc_init_proof = Some(proof);
         }
 
@@ -958,7 +957,7 @@ impl ProofBuilder {
             credential_schema,
             non_credential_schema,
             sub_proof_request,
-            m2_tilde,
+            &m2_tilde,
         )?;
 
         self.c_list
@@ -1179,7 +1178,7 @@ impl ProofBuilder {
         cred_schema: &CredentialSchema,
         non_cred_schema_elems: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
-        m2_t: Option<BigNumber>,
+        m2_tilde: &BigNumber,
     ) -> ClResult<PrimaryInitProof> {
         trace!(
             "ProofBuilder::_init_primary_proof: >>> common_attributes: {:?}, \
@@ -1189,7 +1188,7 @@ impl ProofBuilder {
              cred_schema: {:?}, \
              non_cred_schema_elems: {:?}, \
              sub_proof_request: {:?}, \
-             m2_t: {:?}",
+             m2_tilde: {:?}",
             common_attributes,
             issuer_pub_key,
             c1,
@@ -1197,7 +1196,7 @@ impl ProofBuilder {
             cred_schema,
             non_cred_schema_elems,
             sub_proof_request,
-            m2_t
+            m2_tilde,
         );
 
         let eq_proof = ProofBuilder::_init_eq_proof(
@@ -1207,7 +1206,7 @@ impl ProofBuilder {
             cred_schema,
             non_cred_schema_elems,
             sub_proof_request,
-            m2_t,
+            m2_tilde,
         )?;
 
         let mut ne_proofs: Vec<PrimaryPredicateInequalityInitProof> = Vec::new();
@@ -1239,17 +1238,19 @@ impl ProofBuilder {
         rev_reg: &RevocationRegistry,
         cred_rev_pub_key: &CredentialRevocationPublicKey,
         witness: &Witness,
+        m2_tilde: &BigNumber,
     ) -> ClResult<NonRevocInitProof> {
-        trace!("ProofBuilder::_init_non_revocation_proof: >>> r_cred: {:?}, rev_reg: {:?}, cred_rev_pub_key: {:?}, witness: {:?}",
-               r_cred, rev_reg, cred_rev_pub_key, witness);
+        trace!("ProofBuilder::_init_non_revocation_proof: >>> r_cred: {:?}, rev_reg: {:?}, cred_rev_pub_key: {:?}, witness: {:?}, m2_tilde: {:?}",
+               r_cred, rev_reg, cred_rev_pub_key, witness, m2_tilde);
 
         let c_list_params = ProofBuilder::_gen_c_list_params(r_cred)?;
         let c_list =
             ProofBuilder::_create_c_list_values(r_cred, &c_list_params, cred_rev_pub_key, witness)?;
 
         let tau_list_params = ProofBuilder::_gen_tau_list_params()?;
+        let m2 = bignum_to_group_element_reduce(&m2_tilde, None)?;
         let tau_list =
-            create_tau_list_values(cred_rev_pub_key, rev_reg, &tau_list_params, &c_list)?;
+            create_tau_list_values(cred_rev_pub_key, rev_reg, &tau_list_params, &c_list, &m2)?;
 
         let r_init_proof = NonRevocInitProof {
             c_list_params,
@@ -1273,7 +1274,7 @@ impl ProofBuilder {
         cred_schema: &CredentialSchema,
         non_cred_schema_elems: &NonCredentialSchema,
         sub_proof_request: &SubProofRequest,
-        m2_t: Option<BigNumber>,
+        m2_tilde: &BigNumber,
     ) -> ClResult<PrimaryEqualInitProof> {
         trace!(
             "ProofBuilder::_init_eq_proof: >>> cred_pub_key: {:?}, \
@@ -1287,12 +1288,10 @@ impl ProofBuilder {
             cred_schema,
             non_cred_schema_elems,
             sub_proof_request,
-            m2_t
+            m2_tilde,
         );
 
         let mut ctx = BigNumber::new_context()?;
-
-        let m2_tilde = m2_t.unwrap_or(bn_rand(LARGE_MVECT)?);
 
         let r = bn_rand(LARGE_VPRIME)?;
         let e_tilde = bn_rand(LARGE_ETILDE)?;
@@ -1527,7 +1526,7 @@ impl ProofBuilder {
             m_hat.insert(k.clone(), val);
         }
 
-        let m2 = challenge
+        let m2_hat = challenge
             .mul(&init_proof.m2, Some(&mut ctx))?
             .add(&init_proof.m2_tilde)?;
 
@@ -1551,7 +1550,7 @@ impl ProofBuilder {
             e,
             v,
             m: m_hat,
-            m2,
+            m2: m2_hat,
         };
 
         trace!(
@@ -1686,7 +1685,6 @@ impl ProofBuilder {
         let m_prime = r.mul_mod(&r_prime_prime)?;
         let t = o.mul_mod(&r_cred.c)?;
         let t_prime = o_prime.mul_mod(&r_prime_prime)?;
-        let m2 = GroupOrderElement::from_bytes(&r_cred.m2.to_bytes()?)?;
 
         let non_revoc_proof_x_list = NonRevocProofXList {
             rho,
@@ -1700,7 +1698,6 @@ impl ProofBuilder {
             m_prime,
             t,
             t_prime,
-            m2,
             s: r_cred.vr_prime_prime,
             c: r_cred.c,
         };
@@ -1784,13 +1781,12 @@ impl ProofBuilder {
             m_prime: GroupOrderElement::new()?,
             t: GroupOrderElement::new()?,
             t_prime: GroupOrderElement::new()?,
-            m2: GroupOrderElement::new()?,
             s: GroupOrderElement::new()?,
             c: GroupOrderElement::new()?,
         };
 
         trace!(
-            "ProofBuilder::_gen_tau_list_params: <<< Nnon_revoc_proof_x_list: {:?}",
+            "ProofBuilder::_gen_tau_list_params: <<< non_revoc_proof_x_list: {:?}",
             non_revoc_proof_x_list
         );
 
@@ -1816,7 +1812,7 @@ impl ProofBuilder {
             .iter()
             .zip(init_proof.c_list_params.as_list()?.iter())
         {
-            x_list.push(x.add_mod(&ch_num_z.mul_mod(y)?.mod_neg()?)?);
+            x_list.push(x.add_mod(&ch_num_z.mul_mod(y)?)?);
         }
 
         let non_revoc_proof = NonRevocProof {
@@ -2017,9 +2013,7 @@ mod tests {
         let non_cred_schema_elems = issuer::mocks::non_credential_schema();
         let credential = mocks::primary_credential();
         let sub_proof_request = mocks::sub_proof_request();
-        let m2_tilde =
-            group_element_to_bignum(&mocks::init_non_revocation_proof().tau_list_params.m2)
-                .unwrap();
+        let m2_tilde = mocks::primary_init_proof_m2tilde();
 
         let init_eq_proof = ProofBuilder::_init_eq_proof(
             &common_attributes,
@@ -2028,7 +2022,7 @@ mod tests {
             &cred_schema,
             &non_cred_schema_elems,
             &sub_proof_request,
-            Some(m2_tilde),
+            &m2_tilde,
         )
         .unwrap();
 
@@ -2066,9 +2060,7 @@ mod tests {
         let credential_values = issuer::mocks::credential_values();
         let sub_proof_request = mocks::sub_proof_request();
         let common_attributes = mocks::proof_common_attributes();
-        let m2_tilde =
-            group_element_to_bignum(&mocks::init_non_revocation_proof().tau_list_params.m2)
-                .unwrap();
+        let m2_tilde = mocks::primary_init_proof_m2tilde();
 
         let init_proof = ProofBuilder::_init_primary_proof(
             &common_attributes,
@@ -2078,7 +2070,7 @@ mod tests {
             &credential_schema,
             &non_credential_schema,
             &sub_proof_request,
-            Some(m2_tilde),
+            &m2_tilde,
         )
         .unwrap();
         assert_eq!(mocks::primary_init_proof(), init_proof);
@@ -2293,6 +2285,174 @@ mod tests {
         println!("Update Proof test -> end");
     }
 
+    #[cfg(feature = "openssl_bn")]
+    #[test]
+    fn test_non_revocation_linking() {
+        use crate::Verifier;
+
+        let max_cred_num = 100;
+        let issuance_by_default = true;
+
+        let cred_schema = issuer::mocks::credential_schema();
+        let non_cred_schema = issuer::mocks::non_credential_schema();
+        let (cred_pub_key, cred_priv_key, cred_key_correctness_proof) =
+            issuer::Issuer::new_credential_def(&cred_schema, &non_cred_schema, true)
+                .expect("Error creating credential definition");
+
+        let (rev_key_pub, rev_key_priv, mut rev_reg, _rev_tails_generator) =
+            issuer::Issuer::new_revocation_registry_def(
+                &cred_pub_key,
+                max_cred_num,
+                issuance_by_default,
+            )
+            .expect("Error creating revocation registry");
+
+        let cred_values = issuer::mocks::credential_values();
+        let credential_nonce = new_nonce().unwrap();
+
+        let (
+            blinded_credential_secrets,
+            credential_secrets_blinding_factors,
+            blinded_credential_secrets_correctness_proof,
+        ) = Prover::blind_credential_secrets(
+            &cred_pub_key,
+            &cred_key_correctness_proof,
+            &cred_values,
+            &credential_nonce,
+        )
+        .expect("Error creating linked secret commitment");
+
+        let cred_issuance_nonce = new_nonce().unwrap();
+
+        #[derive(Debug)]
+        struct Cred {
+            signature: CredentialSignature,
+            witness: Witness,
+        }
+        impl Clone for Cred {
+            fn clone(&self) -> Self {
+                Cred {
+                    signature: self.signature.try_clone().unwrap(),
+                    witness: self.witness.clone(),
+                }
+            }
+        }
+
+        let mut creds = Vec::new();
+        let prover_ids = ["prover-id-1", "prover-id-2"];
+        let mut rev_idx = 0;
+
+        for prover_id in prover_ids.iter() {
+            rev_idx += 1;
+            let (mut signature, signature_proof, witness, _) =
+                issuer::Issuer::sign_credential_with_revoc(
+                    prover_id,
+                    &blinded_credential_secrets,
+                    &blinded_credential_secrets_correctness_proof,
+                    &credential_nonce,
+                    &cred_issuance_nonce,
+                    &cred_values,
+                    &cred_pub_key,
+                    &cred_priv_key,
+                    rev_idx,
+                    max_cred_num,
+                    issuance_by_default,
+                    &mut rev_reg,
+                    &rev_key_priv,
+                )
+                .expect("Error signing revocable credential");
+
+            Prover::process_credential_signature(
+                &mut signature,
+                &cred_values,
+                &signature_proof,
+                &credential_secrets_blinding_factors,
+                &cred_pub_key,
+                &cred_issuance_nonce,
+                Some(&rev_key_pub),
+                Some(&rev_reg),
+                Some(&witness),
+            )
+            .expect("Error processing credential signature");
+
+            creds.push(Cred { signature, witness });
+        }
+
+        // Check issued credentials
+
+        let sub_proof_request = mocks::sub_proof_request();
+
+        for cred in creds.iter() {
+            let mut proof_builder = Prover::new_proof_builder().unwrap();
+            proof_builder.add_common_attribute("master_secret").unwrap();
+            proof_builder
+                .add_sub_proof_request(
+                    &sub_proof_request,
+                    &cred_schema,
+                    &non_cred_schema,
+                    &cred.signature,
+                    &cred_values,
+                    &cred_pub_key,
+                    Some(&rev_reg),
+                    Some(&cred.witness),
+                )
+                .unwrap();
+            let proof_request_nonce = new_nonce().unwrap();
+            let proof = proof_builder.finalize(&proof_request_nonce).unwrap();
+
+            let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
+            proof_verifier
+                .add_sub_proof_request(
+                    &sub_proof_request,
+                    &cred_schema,
+                    &non_cred_schema,
+                    &cred_pub_key,
+                    Some(&rev_key_pub),
+                    Some(&rev_reg),
+                )
+                .unwrap();
+
+            assert!(proof_verifier.verify(&proof, &proof_request_nonce).unwrap());
+        }
+
+        // Swap non-revocation credential
+
+        let mut cred = creds[0].clone();
+        cred.signature.r_credential = creds[1].signature.r_credential.clone();
+        cred.witness = creds[1].witness.clone();
+
+        let mut proof_builder = Prover::new_proof_builder().unwrap();
+        proof_builder.add_common_attribute("master_secret").unwrap();
+        proof_builder
+            .add_sub_proof_request(
+                &sub_proof_request,
+                &cred_schema,
+                &non_cred_schema,
+                &cred.signature,
+                &cred_values,
+                &cred_pub_key,
+                Some(&rev_reg),
+                Some(&cred.witness),
+            )
+            .unwrap();
+        let proof_request_nonce = new_nonce().unwrap();
+        let proof = proof_builder.finalize(&proof_request_nonce).unwrap();
+
+        let mut proof_verifier = Verifier::new_proof_verifier().unwrap();
+        proof_verifier
+            .add_sub_proof_request(
+                &sub_proof_request,
+                &cred_schema,
+                &non_cred_schema,
+                &cred_pub_key,
+                Some(&rev_key_pub),
+                Some(&rev_reg),
+            )
+            .unwrap();
+
+        assert!(!proof_verifier.verify(&proof, &proof_request_nonce).unwrap());
+    }
+
     #[test]
     #[ignore]
     fn generate_proof_mocks() {
@@ -2456,6 +2616,13 @@ pub mod mocks {
         }
     }
 
+    pub fn primary_init_proof_m2tilde() -> BigNumber {
+        BigNumber::from_dec(
+            "14049198043322723487718055550558829839278677959655715165983472882418452212100",
+        )
+        .unwrap()
+    }
+
     pub fn primary_init_proof() -> PrimaryInitProof {
         PrimaryInitProof {
             eq_proof: primary_equal_init_proof(),
@@ -2477,7 +2644,7 @@ pub mod mocks {
                 "master_secret".to_string() => BigNumber::from_dec("67940925789970108743024738273926421512152745397724199848594503731042154269417576665420030681245389493783225644817826683796657351721363490290016166310023506339911751676800452438014771736117676826911321621579680668201191205819012441197794443970687648330757835198888257781967404396196813475280544039772512800509").unwrap(),
                 "sex".to_string() => BigNumber::from_dec("6461691768834933403326572830814516653957231030793837560544354737855803497655300429843454445497126567767486684087006218691084619904526729989680526652503377438786587511370042964338").unwrap()
             ],
-            m2_tilde: BigNumber::from_dec("14049198043322723487718055550558829839278677959655715165983472882418452212100").unwrap(),
+            m2_tilde: primary_init_proof_m2tilde(),
             m2: BigNumber::from_dec("69500003785041890145270364348670634122591474903142468939711692725859480163330").unwrap(),
         }
     }
@@ -2814,7 +2981,6 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("1C9D01A3CC41CF3AD171A5E7E29C6E7423F2D09865A68A74A5110DF73182F127").unwrap(),
                 t: GroupOrderElement::from_string("0EB3CF17C8C6E60B0E46C2D475F22EE97DC0AEE10358FF21C8ADAD18FDDE30C5").unwrap(),
                 t_prime: GroupOrderElement::from_string("0314899F2FC10CD76785553F58E661D36607E159C1517FA490A07F08476E5AB9").unwrap(),
-                m2: GroupOrderElement::from_string("099A79BA1F6D7DD6247DBE701CAE80805BED79B043B875CBB37D412BFCA6D402").unwrap(),
                 s: GroupOrderElement::from_string("07D1132A74742156EA34EE02CD0A782F36182CC464DFBFBD0DB009D6601604D9").unwrap(),
                 c: GroupOrderElement::from_string("02361F8FC95B27163873DF7D2C9B5223FAB7307B5E69297040FC3A0DC778C70B").unwrap(),
             },
@@ -2830,7 +2996,6 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("073C5D9384EFD20CCE013ABBD5D5532C248E7D665C7EDB74CD1BB49B5FC458E7").unwrap(),
                 t: GroupOrderElement::from_string("1172571F3FB78814E96FD962B2BD31C1BC7937E8C58FA05942372F58AEDBB4AC").unwrap(),
                 t_prime: GroupOrderElement::from_string("0E4FEED449204DBF040B11D8130635467C9429496BDA901DCE27AB5074A81972").unwrap(),
-                m2: GroupOrderElement::from_string("1F0F9075F1F788A63440BC716F30DBCDB8010B8557020CC20B2156CC1D7B2984").unwrap(),
                 s: GroupOrderElement::from_string("0EA2C0F584D879AFACFE99CCF2DF0AFCCA7DEF831F0E28F05C2DE752A04C7430").unwrap(),
                 c: GroupOrderElement::from_string("01594829F554147480C7111A84A8BEB96D7983514DA58858A0819BCE9EE02FC4").unwrap(),
             },
@@ -2870,7 +3035,6 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("60F60877A17AB5 D18C7AFA6DBC2B 259C5531B7A142 E797E2D6C0DDCA B9E2616").unwrap(),
                 t: GroupOrderElement::from_string("15FB7F7FC34B3F 4C2F0140A4A584 14CD6B6D5D455B 9C63345F66E892 21B88E3F").unwrap(),
                 t_prime: GroupOrderElement::from_string("179B1F02AA6FB4 5E1E2ED844C75A BDF47D8F55BF90 192E37622D8CA0 1634FC27").unwrap(),
-                m2: GroupOrderElement::from_string("EB43877A948FC4 52B12394658B53 394E050536B5E6 F44634D076AB0 1D89C97F").unwrap(),
                 s: GroupOrderElement::from_string("84BC05710625A1 DED5F03DF74609 5F72CE7609971B 2B43CA5E2A5C03 350174").unwrap(),
                 c: GroupOrderElement::from_string("7B5C7449CE3E59 34EADC67AD3E9E D634E35BF03EAC 63AE8185057976 9925E1").unwrap()
             },

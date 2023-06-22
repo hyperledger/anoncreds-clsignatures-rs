@@ -246,6 +246,7 @@ impl ProofVerifier {
                         rev_reg,
                         rev_key_pub,
                         &proof.aggregated_proof.c_hash,
+                        &proof_item.primary_proof,
                         non_revocation_proof,
                     )?
                     .as_slice()?,
@@ -568,17 +569,24 @@ impl ProofVerifier {
         rev_reg: &RevocationRegistry,
         rev_key_pub: &RevocationKeyPublic,
         c_hash: &BigNumber,
-        proof: &NonRevocProof,
+        primary_proof: &PrimaryProof,
+        nonrev_proof: &NonRevocProof,
     ) -> ClResult<NonRevocProofTauList> {
         trace!("ProofVerifier::_verify_non_revocation_proof: >>> r_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}, c_hash: {:?}",
                r_pub_key, rev_reg, rev_key_pub, c_hash);
 
-        let ch_num_z = bignum_to_group_element(c_hash)?;
+        let ch_num_z = bignum_to_group_element(c_hash)?.mod_neg()?;
+        let m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2, None)?;
 
         let t_hat_expected_values =
-            create_tau_list_expected_values(r_pub_key, rev_reg, rev_key_pub, &proof.c_list)?;
-        let t_hat_calc_values =
-            create_tau_list_values(r_pub_key, rev_reg, &proof.x_list, &proof.c_list)?;
+            create_tau_list_expected_values(r_pub_key, rev_reg, rev_key_pub, &nonrev_proof.c_list)?;
+        let t_hat_calc_values = create_tau_list_values(
+            r_pub_key,
+            rev_reg,
+            &nonrev_proof.x_list,
+            &nonrev_proof.c_list,
+            &m2,
+        )?;
 
         let non_revoc_proof_tau_list = Ok(NonRevocProofTauList {
             t1: t_hat_expected_values

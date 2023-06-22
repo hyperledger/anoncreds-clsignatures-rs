@@ -11,6 +11,7 @@ pub const LARGE_ETILDE: usize = 456;
 pub const LARGE_VTILDE: usize = 3060;
 pub const LARGE_UTILDE: usize = 592;
 pub const LARGE_MTILDE: usize = 593;
+pub const LARGE_M2TILDE: usize = 2432;
 pub const LARGE_VPRIME_TILDE: usize = 673;
 pub const LARGE_RTILDE: usize = 672;
 pub const ITERATION: usize = 4;

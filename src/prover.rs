@@ -760,40 +760,42 @@ impl Prover {
         trace!("Prover::_test_witness_signature: >>> r_cred: {:?}, cred_rev_pub_key: {:?}, rev_key_pub: {:?}, rev_reg: {:?}, r_cnxt_m2: {:?}",
                r_cred, cred_rev_pub_key, rev_key_pub, rev_reg, r_cnxt_m2);
 
-        let z_calc = Pair::pair(&r_cred.witness_signature.g_i, &rev_reg.accum)?
-            .mul(&Pair::pair(&cred_rev_pub_key.g, &witness.omega)?.inverse()?)?;
-
+        let z_calc = Pair::pair2(
+            &r_cred.witness_signature.g_i,
+            &rev_reg.accum,
+            &cred_rev_pub_key.g.neg()?,
+            &witness.omega,
+        )?;
         if z_calc != rev_key_pub.z {
             return Err(err_msg!("Issuer is sending incorrect data"));
         }
-        let pair_gg_calc = Pair::pair(
+
+        let gg_calc = Pair::pair2(
             &cred_rev_pub_key.pk.add(&r_cred.g_i)?,
             &r_cred.witness_signature.sigma_i,
+            &cred_rev_pub_key.g.neg()?,
+            &cred_rev_pub_key.g_dash,
         )?;
-        let pair_gg = Pair::pair(&cred_rev_pub_key.g, &cred_rev_pub_key.g_dash)?;
-
-        if pair_gg_calc != pair_gg {
+        if !gg_calc.is_unity()? {
             return Err(err_msg!("Issuer is sending incorrect data"));
         }
 
         let m2 = GroupOrderElement::from_bytes(&r_cnxt_m2.to_bytes()?)?;
 
-        let pair_h1 = Pair::pair(
+        let h_calc = Pair::pair2(
             &r_cred.sigma,
             &cred_rev_pub_key
                 .y
                 .add(&cred_rev_pub_key.h_cap.mul(&r_cred.c)?)?,
-        )?;
-        let pair_h2 = Pair::pair(
             &cred_rev_pub_key
                 .h0
                 .add(&cred_rev_pub_key.h1.mul(&m2)?)?
                 .add(&cred_rev_pub_key.h2.mul(&r_cred.vr_prime_prime)?)?
-                .add(&r_cred.g_i)?,
+                .add(&r_cred.g_i)?
+                .neg()?,
             &cred_rev_pub_key.h_cap,
         )?;
-
-        if pair_h1 != pair_h2 {
+        if !h_calc.is_unity()? {
             return Err(err_msg!("Issuer is sending incorrect data"));
         }
 

@@ -771,11 +771,12 @@ impl Issuer {
         let mut pow_acc = GroupOrderElement::zero()?;
         for (rev_idx, remove) in updates {
             let index = Self::_get_index(max_cred_num, rev_idx);
-            let mut index_pow = Tail::index_pow(index, &rev_key_priv.gamma)?;
+            let index_pow = Tail::index_pow(index, &rev_key_priv.gamma)?;
             if remove {
-                index_pow = index_pow.mod_neg()?;
+                pow_acc = pow_acc.sub_mod(&index_pow)?;
+            } else {
+                pow_acc = pow_acc.add_mod(&index_pow)?;
             }
-            pow_acc = pow_acc.add_mod(&index_pow)?;
         }
         let new_acc = if pow_acc.is_zero() {
             accum

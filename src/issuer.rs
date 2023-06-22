@@ -1345,7 +1345,7 @@ impl Issuer {
 
         let vr_prime_prime = GroupOrderElement::new()?;
         let c = GroupOrderElement::new()?;
-        let m2 = GroupOrderElement::from_bytes(&cred_context.to_bytes()?)?;
+        let m2 = bignum_to_group_element_reduce(&cred_context, None)?;
 
         let gamma_i = Tail::index_pow(rev_idx, &rev_key_priv.gamma)?;
         let g_i = r_pub_key.g.mul(&gamma_i)?;

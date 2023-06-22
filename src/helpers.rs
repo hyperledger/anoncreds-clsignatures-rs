@@ -319,11 +319,11 @@ pub fn calc_teq<S: ::std::hash::BuildHasher>(
     e: &BigNumber,
     v: &BigNumber,
     m_tilde: &HashMap<String, BigNumber, S>,
-    m2tilde: &BigNumber,
+    m2_tilde: &BigNumber,
     unrevealed_attrs: &HashSet<String, S>,
 ) -> ClResult<BigNumber> {
-    trace!("Helpers::calc_teq: >>> p_pub_key: {:?}, p_pub_key: {:?}, e: {:?}, v: {:?}, m_tilde: {:?}, m2tilde: {:?}, \
-    unrevealed_attrs: {:?}", p_pub_key, a_prime, e, v, m_tilde, m2tilde, unrevealed_attrs);
+    trace!("Helpers::calc_teq: >>> p_pub_key: {:?}, p_pub_key: {:?}, e: {:?}, v: {:?}, m_tilde: {:?}, m2_tilde: {:?}, \
+    unrevealed_attrs: {:?}", p_pub_key, a_prime, e, v, m_tilde, m2_tilde, unrevealed_attrs);
 
     let mut ctx = BigNumber::new_context()?;
     // a_prime^e % p_pub_key.n
@@ -351,7 +351,7 @@ pub fn calc_teq<S: ::std::hash::BuildHasher>(
 
     result = p_pub_key
         .rctxt
-        .mod_exp(m2tilde, &p_pub_key.n, Some(&mut ctx))?
+        .mod_exp(m2_tilde, &p_pub_key.n, Some(&mut ctx))?
         .mod_mul(&result, &p_pub_key.n, Some(&mut ctx))?;
 
     trace!("Helpers::calc_teq: <<< t: {:?}", result);
@@ -524,6 +524,15 @@ pub fn bignum_to_group_element(num: &BigNumber) -> ClResult<GroupOrderElement> {
     GroupOrderElement::from_bytes(&num.to_bytes()?)
 }
 
+#[inline(always)]
+pub fn bignum_to_group_element_reduce(
+    num: &BigNumber,
+    ctx: Option<&mut BigNumberContext>,
+) -> ClResult<GroupOrderElement> {
+    let reduced = num.modulus(&GroupOrderElement::order()?, ctx)?;
+    GroupOrderElement::from_bytes(&reduced.to_bytes()?)
+}
+
 pub fn create_tau_list_expected_values(
     r_pub_key: &CredentialRevocationPublicKey,
     rev_reg: &RevocationRegistry,
@@ -577,6 +586,7 @@ pub fn create_tau_list_values(
     rev_reg: &RevocationRegistry,
     params: &NonRevocProofXList,
     proof_c: &NonRevocProofCList,
+    m2: &GroupOrderElement,
 ) -> ClResult<NonRevocProofTauList> {
     trace!("Helpers::create_tau_list_values: >>> r_pub_key: {:?}, rev_reg: {:?}, params: {:?}, proof_c: {:?}",
            r_pub_key, rev_reg, params, proof_c);
@@ -598,7 +608,7 @@ pub fn create_tau_list_values(
             .a
             .mul(&params.c)?
             .add(&r_pub_key.htilde.mul(&params.r.sub_mod(&params.m)?)?)?
-            .sub(&r_pub_key.h1.mul(&params.m2)?)?
+            .sub(&r_pub_key.h1.mul(&m2)?)?
             .sub(&r_pub_key.h2.mul(&params.s)?)?,
         &r_pub_key.h_cap,
         &r_pub_key.htilde.mul(&params.rho)?.neg()?,

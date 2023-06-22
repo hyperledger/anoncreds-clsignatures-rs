@@ -22,6 +22,7 @@ use rand::prelude::*;
 #[cfg(test)]
 use std::cell::RefCell;
 
+use crate::bn::BigNumber;
 use crate::error::Result as ClResult;
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
@@ -396,6 +397,13 @@ impl GroupOrderElement {
         Ok(GroupOrderElement { bn: BIG::new() })
     }
 
+    pub fn order() -> ClResult<BigNumber> {
+        let mut buf = [0u8; Self::BYTES_REPR_SIZE];
+        let mut order = BIG::new_ints(&CURVE_ORDER);
+        order.tobytes(&mut buf);
+        BigNumber::from_bytes(&buf)
+    }
+
     pub fn is_zero(&self) -> bool {
         self.bn.iszilch()
     }
@@ -486,19 +494,12 @@ impl GroupOrderElement {
         if b.len() > Self::BYTES_REPR_SIZE {
             return Err(err_msg!("Invalid byte length for GroupOrderElement"));
         }
-        let mut vec = b.to_vec();
-        let len = vec.len();
-        if len < MODBYTES {
-            let diff = MODBYTES - len;
-            let mut result = vec![0; diff];
-            result.append(&mut vec);
-            return Ok(GroupOrderElement {
-                bn: BIG::frombytes(&result),
-            });
-        }
-        Ok(GroupOrderElement {
-            bn: BIG::frombytes(b),
-        })
+        let mut buf = [0u8; Self::BYTES_REPR_SIZE];
+        buf[(Self::BYTES_REPR_SIZE - b.len())..].copy_from_slice(&b);
+        let mut bn = BIG::frombytes(&buf);
+        bn.rmod(&BIG::new_ints(&CURVE_ORDER));
+        bn.norm();
+        Ok(GroupOrderElement { bn })
     }
 }
 

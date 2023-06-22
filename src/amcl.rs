@@ -24,6 +24,8 @@ use std::cell::RefCell;
 
 use crate::error::Result as ClResult;
 
+const ORDER: BIG = BIG { w: CURVE_ORDER };
+
 #[cfg(test)]
 thread_local! {
   pub static PAIR_USE_MOCKS: RefCell<bool> = RefCell::new(false);
@@ -64,15 +66,14 @@ fn random_mod_order() -> ClResult<BIG> {
 }
 
 fn _random_mod_order() -> ClResult<BIG> {
-    let entropy_bytes = 128;
-    let mut seed = vec![0; entropy_bytes];
+    const ENTROPY: usize = 128;
+    let mut seed = [0; ENTROPY];
     let mut rng = rand::thread_rng();
     rng.fill_bytes(seed.as_mut_slice());
     let mut rng = RAND::new();
-    rng.clean();
     // AMCL recommends to initialise from at least 128 bytes, check doc for `RAND.seed`
-    rng.seed(entropy_bytes, &seed);
-    Ok(BIG::randomnum(&BIG::new_ints(&CURVE_ORDER), &mut rng))
+    rng.seed(ENTROPY, &seed);
+    Ok(BIG::randomnum(&ORDER, &mut rng))
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -405,20 +406,18 @@ impl GroupOrderElement {
             return Err(err_msg!("Invalid byte length for seed"));
         }
         let mut rng = RAND::new();
-        rng.clean();
         rng.seed(seed.len(), seed);
 
         Ok(GroupOrderElement {
-            bn: BIG::randomnum(&BIG::new_ints(&CURVE_ORDER), &mut rng),
+            bn: BIG::randomnum(&ORDER, &mut rng),
         })
     }
 
     /// (GroupOrderElement ^ GroupOrderElement) mod GroupOrder
     pub fn pow_mod(&self, e: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let mut base = self.bn;
-        let pow = e.bn;
         Ok(GroupOrderElement {
-            bn: base.powmod(&pow, &BIG::new_ints(&CURVE_ORDER)),
+            bn: base.powmod(&e.bn, &ORDER),
         })
     }
 
@@ -426,43 +425,42 @@ impl GroupOrderElement {
     pub fn add_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let mut sum = self.bn;
         sum.add(&r.bn);
-        sum.rmod(&BIG::new_ints(&CURVE_ORDER));
+        sum.rmod(&ORDER);
+        sum.norm();
         Ok(GroupOrderElement { bn: sum })
     }
 
     /// (GroupOrderElement - GroupOrderElement) mod GroupOrder
     pub fn sub_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
-        //need to use modneg if sub is negative
-        let mut diff = self.bn;
-        if diff < r.bn {
-            diff = BIG::modneg(&diff, &BIG::new_ints(&CURVE_ORDER));
-        }
-        diff.sub(&r.bn);
-        Ok(GroupOrderElement { bn: diff })
+        let mut sum = self.bn;
+        sum.add(&ORDER);
+        sum.sub(&r.bn);
+        sum.rmod(&ORDER);
+        sum.norm();
+        Ok(GroupOrderElement { bn: sum })
     }
 
     /// (GroupOrderElement * GroupOrderElement) mod GroupOrder
     pub fn mul_mod(&self, r: &GroupOrderElement) -> ClResult<GroupOrderElement> {
-        let base = self.bn;
-        let r = r.bn;
         Ok(GroupOrderElement {
-            bn: BIG::modmul(&base, &r, &BIG::new_ints(&CURVE_ORDER)),
+            bn: BIG::modmul(&self.bn, &r.bn, &ORDER),
         })
     }
 
     /// 1 / GroupOrderElement
     pub fn inverse(&self) -> ClResult<GroupOrderElement> {
         let mut bn = self.bn;
-        bn.invmodp(&BIG::new_ints(&CURVE_ORDER));
-
+        bn.invmodp(&ORDER);
         Ok(GroupOrderElement { bn })
     }
 
     /// - GroupOrderElement mod GroupOrder
     pub fn mod_neg(&self) -> ClResult<GroupOrderElement> {
-        let mut r = self.bn;
-        r = BIG::modneg(&r, &BIG::new_ints(&CURVE_ORDER));
-        Ok(GroupOrderElement { bn: r })
+        let mut bn = self.bn;
+        bn.rmod(&ORDER);
+        bn.rsub(&ORDER);
+        bn.norm();
+        Ok(GroupOrderElement { bn })
     }
 
     pub fn to_string(&self) -> ClResult<String> {
@@ -471,9 +469,10 @@ impl GroupOrderElement {
     }
 
     pub fn from_string(str: &str) -> ClResult<GroupOrderElement> {
-        Ok(GroupOrderElement {
-            bn: BIG::from_hex(str.to_string()),
-        })
+        let mut bn = BIG::from_hex(str.to_string());
+        bn.rmod(&ORDER);
+        bn.norm();
+        Ok(GroupOrderElement { bn })
     }
 
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
@@ -789,6 +788,23 @@ mod tests {
     }
 
     #[test]
+    fn group_order_element_sub_mod() {
+        let mut res = GroupOrderElement::new().unwrap();
+        assert_eq!(
+            res.sub_mod(&res.mod_neg().unwrap()).unwrap(),
+            res.add_mod(&res).unwrap()
+        );
+        assert_eq!(
+            res.mod_neg().unwrap().sub_mod(&res).unwrap(),
+            res.add_mod(&res).unwrap().mod_neg().unwrap()
+        );
+        assert_eq!(
+            res.sub_mod(&res).unwrap(),
+            GroupOrderElement::zero().unwrap()
+        );
+    }
+
+    #[test]
     fn pairing_definition_bilinearity() {
         let a = GroupOrderElement::new().unwrap();
         let b = GroupOrderElement::new().unwrap();
@@ -838,6 +854,15 @@ mod tests {
         let pair_result = pair1.mul(&pair2).unwrap();
         let pair3 = pair_result.mul(&pair1.inverse().unwrap()).unwrap();
         assert_eq!(pair2, pair3);
+
+        let r = GroupOrderElement::new().unwrap();
+        assert_eq!(
+            Pair::pair(&p1.mul(&r).unwrap(), &q1)
+                .unwrap()
+                .inverse()
+                .unwrap(),
+            Pair::pair(&p1.mul(&r.mod_neg().unwrap()).unwrap(), &q1).unwrap()
+        );
     }
 }
 

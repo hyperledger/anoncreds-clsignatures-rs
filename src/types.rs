@@ -561,21 +561,21 @@ impl RevocationTailsGenerator {
 
     pub fn try_next(&mut self) -> ClResult<Option<Tail>> {
         if self.current_index >= self.size {
-            self.cur = None
+            Ok(None)
         } else {
-            if let Some(tail) = self.cur.take() {
-                self.cur.replace(tail.next_tail(&self.gamma)?);
+            let mut res = if let Some(tail) = self.cur.as_ref() {
+                tail.next_tail(&self.gamma)?
             } else {
-                self.cur = Some(Tail::new_tail(
-                    self.current_index,
-                    &self.g_dash,
-                    &self.gamma,
-                )?);
+                self.g_dash
+            };
+            self.cur.replace(res);
+            if self.current_index == (self.size / 2) + 1 {
+                // Do not output tail index n+1
+                res = self.g_dash;
             }
-
             self.current_index += 1;
+            Ok(Some(res))
         }
-        Ok(self.cur)
     }
 }
 

@@ -168,6 +168,23 @@ impl Issuer {
         Ok((rev_key_pub, rev_key_priv, rev_reg, rev_tails_generator))
     }
 
+    /// Creates and returns a new tails file generator for a revocation registry definition.
+    pub fn revocation_tails_generator(
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+        max_cred_num: u32,
+    ) -> ClResult<RevocationTailsGenerator> {
+        let cred_rev_pub_key: &CredentialRevocationPublicKey =
+            credential_pub_key.r_key.as_ref().ok_or_else(|| {
+                err_msg!("There are no revocation keys in the credential public key.")
+            })?;
+        Ok(RevocationTailsGenerator::new(
+            max_cred_num,
+            rev_key_priv.gamma,
+            cred_rev_pub_key.g_dash,
+        ))
+    }
+
     /// Creates and returns credential values entity builder.
     ///
     /// The purpose of credential values builder is building of credential values entity that

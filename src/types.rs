@@ -1200,7 +1200,7 @@ pub struct NonRevocProofXList {
     pub(crate) m_prime: GroupOrderElement,
     pub(crate) t: GroupOrderElement,
     pub(crate) t_prime: GroupOrderElement,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub(crate) m2: Option<GroupOrderElement>,
     pub(crate) s: GroupOrderElement,
     pub(crate) c: GroupOrderElement,

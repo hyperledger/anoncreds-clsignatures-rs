@@ -1200,13 +1200,15 @@ pub struct NonRevocProofXList {
     pub(crate) m_prime: GroupOrderElement,
     pub(crate) t: GroupOrderElement,
     pub(crate) t_prime: GroupOrderElement,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) m2: Option<GroupOrderElement>,
     pub(crate) s: GroupOrderElement,
     pub(crate) c: GroupOrderElement,
 }
 
 impl NonRevocProofXList {
     pub fn as_list(&self) -> ClResult<Vec<GroupOrderElement>> {
-        Ok(vec![
+        let mut ret = vec![
             self.rho,
             self.o,
             self.c,
@@ -1220,7 +1222,11 @@ impl NonRevocProofXList {
             self.r_prime,
             self.r_prime_prime,
             self.r_prime_prime_prime,
-        ])
+        ];
+        if let Some(m2) = self.m2.as_ref() {
+            ret.splice(8..8, [*m2]);
+        }
+        Ok(ret)
     }
 
     pub fn from_list(seq: &[GroupOrderElement]) -> NonRevocProofXList {
@@ -1236,6 +1242,7 @@ impl NonRevocProofXList {
             m_prime: seq[5],
             t: seq[6],
             t_prime: seq[7],
+            m2: None,
             s: seq[8],
             c: seq[2],
         }

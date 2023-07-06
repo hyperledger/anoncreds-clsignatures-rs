@@ -1698,6 +1698,7 @@ impl ProofBuilder {
             m_prime,
             t,
             t_prime,
+            m2: None,
             s: r_cred.vr_prime_prime,
             c: r_cred.c,
         };
@@ -1781,6 +1782,7 @@ impl ProofBuilder {
             m_prime: GroupOrderElement::new()?,
             t: GroupOrderElement::new()?,
             t_prime: GroupOrderElement::new()?,
+            m2: None,
             s: GroupOrderElement::new()?,
             c: GroupOrderElement::new()?,
         };
@@ -2981,6 +2983,7 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("1C9D01A3CC41CF3AD171A5E7E29C6E7423F2D09865A68A74A5110DF73182F127").unwrap(),
                 t: GroupOrderElement::from_string("0EB3CF17C8C6E60B0E46C2D475F22EE97DC0AEE10358FF21C8ADAD18FDDE30C5").unwrap(),
                 t_prime: GroupOrderElement::from_string("0314899F2FC10CD76785553F58E661D36607E159C1517FA490A07F08476E5AB9").unwrap(),
+                m2: None,
                 s: GroupOrderElement::from_string("07D1132A74742156EA34EE02CD0A782F36182CC464DFBFBD0DB009D6601604D9").unwrap(),
                 c: GroupOrderElement::from_string("02361F8FC95B27163873DF7D2C9B5223FAB7307B5E69297040FC3A0DC778C70B").unwrap(),
             },
@@ -2996,6 +2999,7 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("073C5D9384EFD20CCE013ABBD5D5532C248E7D665C7EDB74CD1BB49B5FC458E7").unwrap(),
                 t: GroupOrderElement::from_string("1172571F3FB78814E96FD962B2BD31C1BC7937E8C58FA05942372F58AEDBB4AC").unwrap(),
                 t_prime: GroupOrderElement::from_string("0E4FEED449204DBF040B11D8130635467C9429496BDA901DCE27AB5074A81972").unwrap(),
+                m2: None,
                 s: GroupOrderElement::from_string("0EA2C0F584D879AFACFE99CCF2DF0AFCCA7DEF831F0E28F05C2DE752A04C7430").unwrap(),
                 c: GroupOrderElement::from_string("01594829F554147480C7111A84A8BEB96D7983514DA58858A0819BCE9EE02FC4").unwrap(),
             },
@@ -3035,6 +3039,7 @@ pub mod mocks {
                 m_prime: GroupOrderElement::from_string("60F60877A17AB5 D18C7AFA6DBC2B 259C5531B7A142 E797E2D6C0DDCA B9E2616").unwrap(),
                 t: GroupOrderElement::from_string("15FB7F7FC34B3F 4C2F0140A4A584 14CD6B6D5D455B 9C63345F66E892 21B88E3F").unwrap(),
                 t_prime: GroupOrderElement::from_string("179B1F02AA6FB4 5E1E2ED844C75A BDF47D8F55BF90 192E37622D8CA0 1634FC27").unwrap(),
+                m2: None,
                 s: GroupOrderElement::from_string("84BC05710625A1 DED5F03DF74609 5F72CE7609971B 2B43CA5E2A5C03 350174").unwrap(),
                 c: GroupOrderElement::from_string("7B5C7449CE3E59 34EADC67AD3E9E D634E35BF03EAC 63AE8185057976 9925E1").unwrap()
             },

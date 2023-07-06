@@ -216,10 +216,25 @@ impl ProofVerifier {
     /// assert!(proof_verifier.verify(&proof, &proof_request_nonce).unwrap());
     /// ```
     pub fn verify(&mut self, proof: &Proof, nonce: &Nonce) -> ClResult<bool> {
+        self._verify(proof, nonce, false)
+    }
+
+    /// Verifies a proof, also accepting the older non-revocation proof format.
+    pub fn verify_legacy(&mut self, proof: &Proof, nonce: &Nonce) -> ClResult<bool> {
+        self._verify(proof, nonce, true)
+    }
+
+    pub fn _verify(
+        &mut self,
+        proof: &Proof,
+        nonce: &Nonce,
+        accept_legacy_revoc: bool,
+    ) -> ClResult<bool> {
         trace!(
-            "ProofVerifier::verify: >>> proof: {:?}, nonce: {:?}",
+            "ProofVerifier::verify: >>> proof: {:?}, nonce: {:?}, accept_legacy_revoc: {}",
             proof,
-            nonce
+            nonce,
+            accept_legacy_revoc
         );
 
         ProofVerifier::_check_verify_params_consistency(&self.credentials, proof)?;
@@ -240,17 +255,16 @@ impl ProofVerifier {
                 credential.rev_reg.as_ref(),
                 credential.rev_key_pub.as_ref(),
             ) {
-                tau_list.extend_from_slice(
-                    &ProofVerifier::_verify_non_revocation_proof(
-                        cred_rev_pub_key,
-                        rev_reg,
-                        rev_key_pub,
-                        &proof.aggregated_proof.c_hash,
-                        &proof_item.primary_proof,
-                        non_revocation_proof,
-                    )?
-                    .as_slice()?,
-                );
+                let sub_tau_list = ProofVerifier::_verify_non_revocation_proof(
+                    cred_rev_pub_key,
+                    rev_reg,
+                    rev_key_pub,
+                    &proof.aggregated_proof.c_hash,
+                    &proof_item.primary_proof,
+                    non_revocation_proof,
+                    accept_legacy_revoc,
+                )?;
+                tau_list.extend_from_slice(&sub_tau_list.as_slice()?);
             };
 
             // Check that `m_hat`s of all common attributes are same. Also `m_hat` for each common attribute must be present in each sub proof
@@ -571,12 +585,22 @@ impl ProofVerifier {
         c_hash: &BigNumber,
         primary_proof: &PrimaryProof,
         nonrev_proof: &NonRevocProof,
+        accept_legacy: bool,
     ) -> ClResult<NonRevocProofTauList> {
         trace!("ProofVerifier::_verify_non_revocation_proof: >>> r_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}, c_hash: {:?}",
                r_pub_key, rev_reg, rev_key_pub, c_hash);
 
-        let ch_num_z = bignum_to_group_element(c_hash)?.mod_neg()?;
-        let m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2, None)?;
+        let ch_num_z = bignum_to_group_element(c_hash)?;
+        let mut m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2, None)?;
+        let mut c = ch_num_z.mod_neg()?;
+
+        if accept_legacy {
+            if let Some(sub_m2) = nonrev_proof.x_list.m2.as_ref() {
+                // old format proof - to be phased out
+                c = ch_num_z;
+                m2 = *sub_m2;
+            }
+        }
 
         let t_hat_expected_values =
             create_tau_list_expected_values(r_pub_key, rev_reg, rev_key_pub, &nonrev_proof.c_list)?;
@@ -588,47 +612,47 @@ impl ProofVerifier {
             &m2,
         )?;
 
-        let non_revoc_proof_tau_list = Ok(NonRevocProofTauList {
+        let non_revoc_proof_tau_list = NonRevocProofTauList {
             t1: t_hat_expected_values
                 .t1
-                .mul(&ch_num_z)?
+                .mul(&c)?
                 .add(&t_hat_calc_values.t1)?,
             t2: t_hat_expected_values
                 .t2
-                .mul(&ch_num_z)?
+                .mul(&c)?
                 .add(&t_hat_calc_values.t2)?,
             t3: t_hat_expected_values
                 .t3
-                .pow(&ch_num_z)?
+                .pow(&c)?
                 .mul(&t_hat_calc_values.t3)?,
             t4: t_hat_expected_values
                 .t4
-                .pow(&ch_num_z)?
+                .pow(&c)?
                 .mul(&t_hat_calc_values.t4)?,
             t5: t_hat_expected_values
                 .t5
-                .mul(&ch_num_z)?
+                .mul(&c)?
                 .add(&t_hat_calc_values.t5)?,
             t6: t_hat_expected_values
                 .t6
-                .mul(&ch_num_z)?
+                .mul(&c)?
                 .add(&t_hat_calc_values.t6)?,
             t7: t_hat_expected_values
                 .t7
-                .pow(&ch_num_z)?
+                .pow(&c)?
                 .mul(&t_hat_calc_values.t7)?,
             t8: t_hat_expected_values
                 .t8
-                .pow(&ch_num_z)?
+                .pow(&c)?
                 .mul(&t_hat_calc_values.t8)?,
-        });
+        };
 
         trace!(
             "ProofVerifier::_verify_non_revocation_proof: <<< non_revoc_proof_tau_list: {:?}",
             non_revoc_proof_tau_list
         );
 
-        non_revoc_proof_tau_list
+        Ok(non_revoc_proof_tau_list)
     }
 }
 

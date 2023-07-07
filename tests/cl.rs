@@ -624,7 +624,6 @@ mod tests {
 
 #[cfg(feature = "openssl_bn")]
 mod openssl_tests {
-    use anoncreds_clsignatures::error::ErrorKind;
     use anoncreds_clsignatures::*;
     use std::collections::BTreeSet;
 

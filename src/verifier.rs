@@ -5,12 +5,13 @@ use std::iter::FromIterator;
 use crate::bn::BigNumber;
 use crate::constants::{ITERATION, LARGE_E_START_VALUE};
 use crate::error::Result as ClResult;
-use crate::hash::get_hash_as_int;
+use crate::hash::hash_list_to_bignum;
 use crate::helpers::*;
 use crate::types::*;
 
 /// Party that wants to check that prover has some credentials provided by issuer.
-pub struct Verifier {}
+#[derive(Copy, Clone, Debug)]
+pub struct Verifier;
 
 impl Verifier {
     /// Creates and returns sub proof request entity builder.
@@ -309,7 +310,7 @@ impl ProofVerifier {
         values.extend_from_slice(&proof.aggregated_proof.c_list);
         values.push(nonce.to_bytes()?);
 
-        let c_hver = get_hash_as_int(&values)?;
+        let c_hver = hash_list_to_bignum(&values)?;
 
         info!(target: "anoncreds_service", "Verifier verify proof -> done");
 

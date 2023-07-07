@@ -1,28 +1,32 @@
-#[macro_use]
-extern crate lazy_static;
+#![deny(missing_debug_implementations)]
+#![deny(rust_2018_idioms)]
+#![deny(unsafe_code)]
+
 #[macro_use]
 extern crate log;
 
 #[macro_use]
-pub mod error;
+mod error;
 #[macro_use]
 mod macros;
-
-pub mod constants;
 #[macro_use]
-pub mod helpers;
-pub mod hash;
+mod helpers;
+
+mod amcl;
+mod constants;
+mod hash;
 mod issuer;
 mod prover;
 mod verifier;
 
-mod bn;
+pub mod bn;
 mod types;
 
-mod amcl;
-
-pub use self::helpers::new_nonce;
-pub use self::issuer::Issuer;
-pub use self::prover::{ProofBuilder, Prover};
-pub use self::types::*;
-pub use self::verifier::Verifier;
+pub use {
+    self::error::{Error, ErrorKind},
+    self::helpers::new_nonce,
+    self::issuer::Issuer,
+    self::prover::{ProofBuilder, Prover},
+    self::types::*,
+    self::verifier::Verifier,
+};

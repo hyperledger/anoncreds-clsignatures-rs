@@ -5,12 +5,13 @@ use crate::amcl::*;
 use crate::bn::BigNumber;
 use crate::constants::*;
 use crate::error::Result as ClResult;
-use crate::hash::get_hash_as_int;
+use crate::hash::{hash_list_to_bignum, ByteOrder};
 use crate::helpers::*;
 use crate::types::*;
 
 /// Trust source that provides credentials to prover.
-pub struct Issuer {}
+#[derive(Copy, Clone, Debug)]
+pub struct Issuer;
 
 impl Issuer {
     /// Creates and returns credential schema entity builder.
@@ -950,7 +951,7 @@ impl Issuer {
             values.extend_from_slice(&val.to_bytes()?);
         }
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let xz_cap = c
             .mul(&cred_pr_pub_key_meta.xz, Some(&mut ctx))?
@@ -1103,7 +1104,7 @@ impl Issuer {
         values.extend_from_slice(&u_cap.to_bytes()?);
         values.extend_from_slice(&nonce.to_bytes()?);
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let valid = blinded_cred_secrets_correctness_proof.c.eq(&c);
 
@@ -1135,7 +1136,7 @@ impl Issuer {
         values.extend_from_slice(&prover_id_bn.to_bytes()?);
         values.extend_from_slice(&rev_idx_bn.to_bytes()?);
 
-        let credential_context = get_hash_as_int(&[values])?;
+        let credential_context = hash_list_to_bignum(&[values])?;
 
         trace!(
             "Issuer::_gen_credential_context: <<< credential_context: {:?}",
@@ -1283,7 +1284,7 @@ impl Issuer {
         values.extend_from_slice(&a_cap.to_bytes()?);
         values.extend_from_slice(&nonce.to_bytes()?);
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let se = r.mod_sub(
             &c.mod_mul(
@@ -1636,13 +1637,16 @@ mod tests {
             )
             .unwrap();
         credential_values_builder
-            .add_value_known("name", &string_to_bignumber("indy-crypto"))
+            .add_value_known(
+                "name",
+                &encode_attribute("indy-crypto", ByteOrder::Big).unwrap(),
+            )
             .unwrap();
         credential_values_builder
             .add_dec_known("age", "25")
             .unwrap();
         credential_values_builder
-            .add_value_known("sex", &string_to_bignumber("refused"))
+            .add_value_known("sex", &encode_attribute("refused", ByteOrder::Big).unwrap())
             .unwrap();
         credential_values_builder
             .add_dec_known("height", "175")
@@ -1735,11 +1739,6 @@ mod tests {
         )
         .unwrap();
         println!("after prover cred_signature={:#?}", cred_signature);
-    }
-
-    fn string_to_bignumber(s: &str) -> BigNumber {
-        let hash = BigNumber::hash(s.as_bytes()).unwrap();
-        BigNumber::from_bytes(&hash[..]).unwrap()
     }
 }
 

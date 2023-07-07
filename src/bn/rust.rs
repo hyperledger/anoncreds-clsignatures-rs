@@ -8,7 +8,6 @@ use num_integer::Integer;
 use num_traits::identities::{One, Zero};
 use num_traits::{Num, Pow, Signed, ToPrimitive};
 use rand::rngs::OsRng;
-use sha2::{self, Digest};
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -175,10 +174,6 @@ impl BigNumber {
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         let (_, res) = self.bn.to_bytes_be();
         Ok(res)
-    }
-
-    pub fn hash(data: &[u8]) -> ClResult<Vec<u8>> {
-        Ok(sha2::Sha256::digest(data).as_slice().to_vec())
     }
 
     pub fn add(&self, a: &BigNumber) -> ClResult<BigNumber> {
@@ -436,16 +431,6 @@ impl BigNumber {
             bn: self.bn.clone(),
         })
     }
-
-    pub fn hash_array(nums: &[Vec<u8>]) -> ClResult<Vec<u8>> {
-        let mut hasher = sha2::Sha256::new();
-
-        for num in nums.iter() {
-            hasher.update(&num);
-        }
-
-        Ok(hasher.finalize().as_slice().to_vec())
-    }
 }
 
 impl fmt::Debug for BigNumber {
@@ -544,14 +529,9 @@ impl Default for BigNumber {
     }
 }
 
-// Constants that are used throughout the code, so avoiding recomputation.
-lazy_static! {
-    pub static ref BIGNUMBER_1: BigNumber = BigNumber::from_u32(1).unwrap();
-    pub static ref BIGNUMBER_2: BigNumber = BigNumber::from_u32(2).unwrap();
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::BIGNUMBER_1;
     use super::*;
 
     const RANGE_LEFT: usize = 592;

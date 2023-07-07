@@ -1,3 +1,5 @@
+use once_cell::sync::Lazy;
+
 use crate::bn::{BigNumber, BIGNUMBER_2};
 
 pub const LARGE_MASTER_SECRET: usize = 256;
@@ -24,16 +26,20 @@ pub const LARGE_NONCE: usize = 80; // number of bits
 pub const LARGE_ALPHATILDE: usize = 2787;
 
 // Constants that are used throughout the CL signatures code, so avoiding recomputation.
-lazy_static! {
-    pub static ref LARGE_E_START_VALUE: BigNumber = BIGNUMBER_2
+pub static LARGE_E_START_VALUE: Lazy<BigNumber> = Lazy::new(|| {
+    BIGNUMBER_2
         .exp(&BigNumber::from_u32(LARGE_E_START).unwrap(), None)
-        .unwrap();
-    pub static ref LARGE_E_END_RANGE_VALUE: BigNumber = BIGNUMBER_2
+        .unwrap()
+});
+pub static LARGE_E_END_RANGE_VALUE: Lazy<BigNumber> = Lazy::new(|| {
+    BIGNUMBER_2
         .exp(&BigNumber::from_u32(LARGE_E_END_RANGE).unwrap(), None)
         .unwrap()
         .add(&LARGE_E_START_VALUE)
-        .unwrap();
-    pub static ref LARGE_VPRIME_PRIME_VALUE: BigNumber = BIGNUMBER_2
+        .unwrap()
+});
+pub static LARGE_VPRIME_PRIME_VALUE: Lazy<BigNumber> = Lazy::new(|| {
+    BIGNUMBER_2
         .exp(&BigNumber::from_u32(LARGE_VPRIME_PRIME - 1).unwrap(), None)
-        .unwrap();
-}
+        .unwrap()
+});

@@ -1,12 +1,9 @@
 use std::cmp::Ord;
 use std::cmp::Ordering;
-#[cfg(feature = "serde")]
 use std::fmt;
 
-use int_traits::IntTraits;
 use openssl::bn::{BigNum, BigNumContext, BigNumRef, MsbOption};
 use openssl::error::ErrorStack;
-use openssl::hash::{hash, Hasher, MessageDigest};
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -15,6 +12,12 @@ use crate::error::{Error as ClError, Result as ClResult};
 
 pub struct BigNumberContext {
     openssl_bn_context: BigNumContext,
+}
+
+impl fmt::Debug for BigNumberContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "BigNumberContext")
+    }
 }
 
 #[derive(Debug)]
@@ -69,7 +72,7 @@ impl BigNumber {
 
     pub fn is_prime(&self, ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
         let prime_len = self.to_dec()?.len();
-        let checks = prime_len.log2() as i32;
+        let checks = prime_len.ilog2() as i32;
         match ctx {
             Some(context) => Ok(self
                 .openssl_bn
@@ -166,10 +169,6 @@ impl BigNumber {
 
     pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
         Ok(self.openssl_bn.to_vec())
-    }
-
-    pub fn hash(data: &[u8]) -> ClResult<Vec<u8>> {
-        Ok(hash(MessageDigest::sha256(), data)?.to_vec())
     }
 
     pub fn add(&self, a: &BigNumber) -> ClResult<BigNumber> {
@@ -558,16 +557,6 @@ impl BigNumber {
         openssl_bn.set_negative(self.is_negative());
         Ok(BigNumber { openssl_bn })
     }
-
-    pub fn hash_array(nums: &[Vec<u8>]) -> ClResult<Vec<u8>> {
-        let mut sha256 = Hasher::new(MessageDigest::sha256())?;
-
-        for num in nums.iter() {
-            sha256.update(num)?;
-        }
-
-        Ok(sha256.finish()?.to_vec())
-    }
 }
 
 impl Ord for BigNumber {
@@ -614,7 +603,7 @@ impl<'a> Deserialize<'a> for BigNumber {
         impl<'a> Visitor<'a> for BigNumberVisitor {
             type Value = BigNumber;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
                 formatter.write_str("expected BigNumber")
             }
 
@@ -643,14 +632,9 @@ impl Default for BigNumber {
     }
 }
 
-// Constants that are used throughout the code, so avoiding recomputation.
-lazy_static! {
-    pub static ref BIGNUMBER_1: BigNumber = BigNumber::from_u32(1).unwrap();
-    pub static ref BIGNUMBER_2: BigNumber = BigNumber::from_u32(2).unwrap();
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::BIGNUMBER_1;
     use super::*;
 
     const RANGE_LEFT: usize = 592;

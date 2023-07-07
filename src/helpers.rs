@@ -9,22 +9,16 @@ use crate::amcl::{GroupOrderElement, Pair, PointG1};
 use crate::bn::{BigNumber, BigNumberContext, BIGNUMBER_1};
 use crate::constants::*;
 use crate::error::Result as ClResult;
+use crate::hash::{hash_to_bignum, ByteOrder};
 use crate::types::*;
-
-#[derive(Debug, Copy, Clone)]
-#[allow(dead_code)] //FIXME
-pub enum ByteOrder {
-    Big,
-    Little,
-}
 
 #[cfg(test)]
 thread_local! {
-  pub static USE_MOCKS: RefCell<bool> = RefCell::new(false);
+  static USE_MOCKS: RefCell<bool> = RefCell::new(false);
 }
 
 #[cfg(test)]
-pub struct MockHelper {}
+pub(crate) struct MockHelper {}
 
 #[cfg(test)]
 impl MockHelper {
@@ -106,14 +100,7 @@ pub fn encode_attribute(attribute: &str, byte_order: ByteOrder) -> ClResult<BigN
         attribute,
         byte_order
     );
-    let mut result = BigNumber::hash(attribute.as_bytes())?;
-
-    if let ByteOrder::Little = byte_order {
-        result.reverse();
-    }
-
-    let encoded_attribute = BigNumber::from_bytes(&result)?;
-
+    let encoded_attribute = hash_to_bignum(attribute.as_bytes(), byte_order)?;
     trace!(
         "Helpers::encode_attribute: <<< encoded_attribute: {:?}",
         encoded_attribute

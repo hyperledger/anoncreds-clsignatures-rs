@@ -5,12 +5,13 @@ use crate::amcl::*;
 use crate::bn::BigNumber;
 use crate::constants::*;
 use crate::error::Result as ClResult;
-use crate::hash::get_hash_as_int;
+use crate::hash::hash_list_to_bignum;
 use crate::helpers::*;
 use crate::types::*;
 
 /// Credentials owner that can proof and partially disclose the credentials to verifier.
-pub struct Prover {}
+#[derive(Copy, Clone, Debug)]
+pub struct Prover;
 
 impl Prover {
     /// Creates a master secret.
@@ -376,7 +377,7 @@ impl Prover {
             values.extend_from_slice(&val.to_bytes()?);
         }
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let valid = key_correctness_proof.c.eq(&c);
 
@@ -557,7 +558,7 @@ impl Prover {
         values.extend_from_slice(&u_tilde.to_bytes()?);
         values.extend_from_slice(&nonce.to_bytes()?);
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let v_dash_cap = c
             .mul(&blinded_primary_credential_secrets.v_prime, Some(&mut ctx))?
@@ -736,7 +737,7 @@ impl Prover {
         values.extend_from_slice(&a_cap.to_bytes()?);
         values.extend_from_slice(&nonce.to_bytes()?);
 
-        let c = get_hash_as_int(&[values])?;
+        let c = hash_list_to_bignum(&[values])?;
 
         let valid = signature_correctness_proof.c.eq(&c);
 
@@ -1063,7 +1064,7 @@ impl ProofBuilder {
         values.push(nonce.to_bytes()?);
 
         // In the anoncreds whitepaper, `challenge` is denoted by `c_h`
-        let challenge = get_hash_as_int(&values)?;
+        let challenge = hash_list_to_bignum(&values)?;
 
         let mut proofs: Vec<SubProof> = Vec::new();
 

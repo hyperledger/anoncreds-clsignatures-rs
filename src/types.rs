@@ -254,12 +254,12 @@ impl CredentialPublicKey {
         })
     }
 
-    pub fn get_primary_key(&self) -> ClResult<CredentialPrimaryPublicKey> {
-        self.p_key.try_clone()
+    pub fn get_primary_key(&self) -> &CredentialPrimaryPublicKey {
+        &self.p_key
     }
 
-    pub fn get_revocation_key(&self) -> ClResult<Option<CredentialRevocationPublicKey>> {
-        Ok(self.r_key.clone())
+    pub fn get_revocation_key(&self) -> Option<&CredentialRevocationPublicKey> {
+        self.r_key.as_ref()
     }
 
     pub fn build_from_parts(

@@ -1,14 +1,42 @@
+use sha2::{Digest, Sha256};
+
 use crate::bn::BigNumber;
 use crate::error::Result as ClResult;
 
-pub fn get_hash_as_int(nums: &[Vec<u8>]) -> ClResult<BigNumber> {
-    trace!("Helpers::get_hash_as_int: >>> nums: {:?}", nums);
+#[derive(Debug, Copy, Clone, Default)]
+pub enum ByteOrder {
+    #[default]
+    Big,
+    Little,
+}
 
-    let hash = BigNumber::from_bytes(&BigNumber::hash_array(nums)?);
+pub fn hash_list_to_bignum(nums: &[Vec<u8>]) -> ClResult<BigNumber> {
+    trace!("Helpers::hash_list_to_bignum: >>> nums: {:?}", nums);
 
-    trace!("Helpers::get_hash_as_int: <<< hash: {:?}", hash);
+    let mut hasher = Sha256::new();
+    for num in nums.iter() {
+        hasher.update(&num);
+    }
+    let hash_bytes = hasher.finalize();
+    let hash_num = BigNumber::from_bytes(&hash_bytes);
 
-    hash
+    trace!("Helpers::hash_list_to_bignum: <<< hash: {:?}", hash_num);
+
+    hash_num
+}
+
+pub fn hash_to_bignum(input: &[u8], byte_order: ByteOrder) -> ClResult<BigNumber> {
+    trace!("Helpers::hash_to_bignum: >>> input: {:?}", input);
+
+    let mut hash_bytes = Sha256::digest(input);
+    if matches!(byte_order, ByteOrder::Little) {
+        hash_bytes.reverse();
+    }
+    let hash_num = BigNumber::from_bytes(&hash_bytes);
+
+    trace!("Helpers::hash_to_bignum: <<< hash: {:?}", hash_num);
+
+    hash_num
 }
 
 #[cfg(test)]
@@ -27,7 +55,7 @@ mod tests {
                 .to_bytes()
                 .unwrap(),
         ];
-        let res = get_hash_as_int(&nums);
+        let res = hash_list_to_bignum(&nums);
 
         assert!(res.is_ok());
         assert_eq!(

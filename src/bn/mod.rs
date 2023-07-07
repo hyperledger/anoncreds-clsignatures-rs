@@ -1,4 +1,7 @@
 use once_cell::sync::Lazy;
+use rand::{thread_rng, RngCore};
+
+use crate::error::Error;
 
 #[cfg_attr(feature = "openssl_bn", path = "openssl.rs")]
 #[cfg_attr(not(feature = "openssl_bn"), path = "rust.rs")]
@@ -10,6 +13,46 @@ pub use inner::*;
 pub(crate) static BIGNUMBER_1: Lazy<BigNumber> = Lazy::new(|| BigNumber::from_u32(1).unwrap());
 pub(crate) static BIGNUMBER_2: Lazy<BigNumber> = Lazy::new(|| BigNumber::from_u32(2).unwrap());
 
+pub fn _generate_prime_in_range(size_bits: usize, range_bits: usize) -> Result<BigNumber, Error> {
+    trace!("bn::_generate_prime_in_range: >>> size: {size_bits}, range: {range_bits}",);
+
+    let size_bytes = (size_bits + 7) / 8;
+    assert!(size_bytes > 2);
+    let range_bytes = ((range_bits + 7) / 8).min(size_bytes);
+    assert!(range_bytes > 2);
+    let size_top_bits = (size_bits + 7) % 8;
+    let range_top_bits = (range_bits + 7) % 8;
+    let range_top_offs = size_bytes - range_bytes;
+    let mut buf = vec![0u8; size_bytes];
+    let mut iteration = 0;
+    let mut rng = thread_rng();
+    let mut ctx = BigNumber::new_context()?;
+
+    let res = loop {
+        buf.fill(0u8);
+        rng.fill_bytes(&mut buf[range_top_offs..]);
+        // only odd candidates
+        buf[size_bytes - 1] |= 1;
+        // ensure within range
+        buf[range_top_offs] &= !(u8::MAX << range_top_bits);
+        // ensure within size
+        buf[0] |= 1 << size_top_bits;
+
+        let res = BigNumber::from_bytes(&buf)?;
+        if res.is_prime(Some(&mut ctx))? {
+            debug!("Found prime in {iteration} iterations");
+            break res;
+        }
+        iteration += 1;
+    };
+
+    trace!(
+        "bn::_generate_prime_in_range: <<< prime: {:?}",
+        secret!(&res)
+    );
+    Ok(res)
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "serde")]
@@ -17,8 +60,8 @@ mod tests {
 
     use super::*;
 
-    const RANGE_LEFT: usize = 592;
-    const RANGE_RIGHT: usize = 592;
+    const RANGE_START: usize = 592;
+    const RANGE_SIZE: usize = 100;
 
     #[test]
     fn exp_works() {
@@ -88,9 +131,15 @@ mod tests {
 
     #[test]
     fn generate_prime_in_range_works() {
-        let start = BigNumber::rand(RANGE_LEFT).unwrap();
-        let end = BigNumber::rand(RANGE_RIGHT).unwrap();
-        let random_prime = BigNumber::generate_prime_in_range(&start, &end).unwrap();
+        let start = BIGNUMBER_2
+            .exp(&BigNumber::from_u32(RANGE_START - 1).unwrap(), None)
+            .unwrap();
+        let end = BIGNUMBER_2
+            .exp(&BigNumber::from_u32(RANGE_SIZE - 1).unwrap(), None)
+            .unwrap()
+            .add(&start)
+            .unwrap();
+        let random_prime = _generate_prime_in_range(RANGE_START, RANGE_SIZE).unwrap();
         assert!(start < random_prime);
         assert!(end > random_prime);
     }

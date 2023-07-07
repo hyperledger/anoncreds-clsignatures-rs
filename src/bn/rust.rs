@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use glass_pumpkin::{prime, safe_prime};
-use num_bigint::{BigInt, BigUint, RandBigInt, Sign, ToBigInt};
+use num_bigint::{BigInt, RandBigInt, Sign, ToBigInt};
 use num_integer::Integer;
 use num_traits::identities::{One, Zero};
 use num_traits::{Num, Pow, Signed, ToPrimitive};
@@ -58,46 +58,6 @@ impl BigNumber {
 
     pub fn generate_safe_prime(size: usize) -> ClResult<BigNumber> {
         prime_generation!(safe_prime, size, "Unable to generate safe prime")
-    }
-
-    pub fn generate_prime_in_range(start: &BigNumber, end: &BigNumber) -> ClResult<BigNumber> {
-        let mut res;
-        let mut iteration = 0;
-        let mut rng = OsRng::default();
-        let mut start = match start.bn.to_biguint() {
-            Some(bn) => bn,
-            None => {
-                return Err(err_msg!("Invalid number for 'start': {:?}", start));
-            }
-        };
-        let mut end = match end.bn.to_biguint() {
-            Some(bn) => bn,
-            None => {
-                return Err(err_msg!("Invalid number for 'end': {:?}", end));
-            }
-        };
-
-        if start > end {
-            let temp = start;
-            start = end.clone();
-            end = temp;
-        }
-
-        loop {
-            res = rng.gen_biguint_range(&start, &end);
-            res |= BigUint::one();
-
-            if prime::check(&res) {
-                debug!("Found prime in {} iteration", iteration);
-                break;
-            }
-            iteration += 1;
-        }
-
-        match res.to_bigint() {
-            Some(bn) => Ok(BigNumber { bn }),
-            None => Err(err_msg!("Unable to generate prime in range")),
-        }
     }
 
     pub fn is_prime(&self, _ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {

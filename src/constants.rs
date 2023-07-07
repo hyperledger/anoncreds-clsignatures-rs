@@ -31,13 +31,6 @@ pub static LARGE_E_START_VALUE: Lazy<BigNumber> = Lazy::new(|| {
         .exp(&BigNumber::from_u32(LARGE_E_START).unwrap(), None)
         .unwrap()
 });
-pub static LARGE_E_END_RANGE_VALUE: Lazy<BigNumber> = Lazy::new(|| {
-    BIGNUMBER_2
-        .exp(&BigNumber::from_u32(LARGE_E_END_RANGE).unwrap(), None)
-        .unwrap()
-        .add(&LARGE_E_START_VALUE)
-        .unwrap()
-});
 pub static LARGE_VPRIME_PRIME_VALUE: Lazy<BigNumber> = Lazy::new(|| {
     BIGNUMBER_2
         .exp(&BigNumber::from_u32(LARGE_VPRIME_PRIME - 1).unwrap(), None)

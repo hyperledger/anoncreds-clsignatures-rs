@@ -6,7 +6,7 @@ use std::hash::Hash;
 use std::cell::RefCell;
 
 use crate::amcl::{GroupOrderElement, Pair, PointG1};
-use crate::bn::{BigNumber, BigNumberContext, BIGNUMBER_1};
+use crate::bn::{BigNumber, BigNumberContext, _generate_prime_in_range, BIGNUMBER_1};
 use crate::constants::*;
 use crate::error::Result as ClResult;
 use crate::hash::{hash_to_bignum, ByteOrder};
@@ -138,33 +138,16 @@ pub fn _generate_v_prime_prime() -> ClResult<BigNumber> {
 }
 
 #[cfg(test)]
-pub fn generate_prime_in_range(start: &BigNumber, end: &BigNumber) -> ClResult<BigNumber> {
+pub fn generate_prime_in_range(size_bits: usize, range_bits: usize) -> ClResult<BigNumber> {
     if MockHelper::is_injected() {
         return BigNumber::from_dec("259344723055062059907025491480697571938277889515152306249728583105665800713306759149981690559193987143012367913206299323899696942213235956742930201588264091397308910346117473868881");
     }
-    _generate_prime_in_range(start, end)
+    _generate_prime_in_range(size_bits, range_bits)
 }
 
 #[cfg(not(test))]
-pub fn generate_prime_in_range(start: &BigNumber, end: &BigNumber) -> ClResult<BigNumber> {
-    _generate_prime_in_range(start, end)
-}
-
-pub fn _generate_prime_in_range(start: &BigNumber, end: &BigNumber) -> ClResult<BigNumber> {
-    trace!(
-        "Helpers::generate_prime_in_range: >>> start: {:?}, end: {:?}",
-        secret!(start),
-        secret!(end)
-    );
-
-    let prime = BigNumber::generate_prime_in_range(start, end)?;
-
-    trace!(
-        "Helpers::generate_prime_in_range: <<< prime: {:?}",
-        secret!(&prime)
-    );
-
-    Ok(prime)
+pub fn generate_prime_in_range(size_bits: usize, range_bits: usize) -> ClResult<BigNumber> {
+    _generate_prime_in_range(size_bits, range_bits)
 }
 
 #[cfg(test)]

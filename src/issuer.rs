@@ -1158,7 +1158,7 @@ impl Issuer {
 
         let v = generate_v_prime_prime()?;
 
-        let e = generate_prime_in_range(&LARGE_E_START_VALUE, &LARGE_E_END_RANGE_VALUE)?;
+        let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE)?;
         let (a, q) = Issuer::_sign_primary_credential(
             cred_pub_key,
             cred_priv_key,

@@ -50,38 +50,20 @@ impl BigNumber {
         Ok(bn)
     }
 
-    pub fn generate_prime_in_range(start: &BigNumber, end: &BigNumber) -> ClResult<BigNumber> {
-        let mut prime;
-        let mut iteration = 0;
-        let mut bn_ctx = BigNumber::new_context()?;
-        let sub = end.sub(start)?;
-
-        loop {
-            prime = sub.rand_range()?;
-            prime = prime.add(start)?;
-
-            if prime.is_prime(Some(&mut bn_ctx))? {
-                debug!("Found prime in {} iteration", iteration);
-                break;
-            }
-            iteration += 1;
-        }
-
-        Ok(prime)
-    }
-
     pub fn is_prime(&self, ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
-        let prime_len = self.to_dec()?.len();
-        let checks = prime_len.ilog2() as i32;
+        let prime_len = self.openssl_bn.num_bits() as f32 * core::f32::consts::LOG10_2;
+        let checks = prime_len.log2() as i32;
         match ctx {
-            Some(context) => Ok(self
-                .openssl_bn
-                .is_prime(checks, &mut context.openssl_bn_context)?),
+            Some(context) => Ok(self.openssl_bn.is_prime_fasttest(
+                checks,
+                &mut context.openssl_bn_context,
+                true,
+            )?),
             None => {
                 let mut ctx = BigNumber::new_context()?;
                 Ok(self
                     .openssl_bn
-                    .is_prime(checks, &mut ctx.openssl_bn_context)?)
+                    .is_prime_fasttest(checks, &mut ctx.openssl_bn_context, true)?)
             }
         }
     }

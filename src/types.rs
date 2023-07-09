@@ -706,7 +706,6 @@ impl Witness {
 
         for j in issued {
             let index = max_cred_num + 1 - j + rev_idx;
-            // println!("{index}");
             rev_tails_accessor.access_tail(index, &mut |tail| {
                 omega = omega.add(tail).unwrap();
             })?;

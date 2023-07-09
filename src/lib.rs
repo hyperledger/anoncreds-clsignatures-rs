@@ -24,7 +24,7 @@ mod types;
 
 pub use {
     self::error::{Error, ErrorKind},
-    self::helpers::new_nonce,
+    self::helpers::{hash_credential_attribute, new_nonce},
     self::issuer::Issuer,
     self::prover::{ProofBuilder, Prover},
     self::types::*,

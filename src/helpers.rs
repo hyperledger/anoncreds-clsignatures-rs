@@ -109,6 +109,11 @@ pub fn encode_attribute(attribute: &str, byte_order: ByteOrder) -> ClResult<BigN
     Ok(encoded_attribute)
 }
 
+/// Hash an attribute string using sha256, returning the decimal representation.
+pub fn hash_credential_attribute(attribute: &str) -> ClResult<String> {
+    encode_attribute(attribute, ByteOrder::Big)?.to_dec()
+}
+
 #[cfg(test)]
 pub fn generate_v_prime_prime() -> ClResult<BigNumber> {
     if MockHelper::is_injected() {

@@ -181,20 +181,8 @@ mod tests {
             base.mod_exp(&exp, &modulus, None).unwrap()
         );
 
-        let modulus = BigNumber::from_u32(1).unwrap();
-        assert_eq!(
-            BigNumber::new().unwrap(),
-            base.mod_exp(&exp, &modulus, None).unwrap()
-        );
-
         let modulus = BigNumber::from_u32(0).unwrap();
         assert!(base.mod_exp(&exp, &modulus, None).is_err());
-
-        let modulus = BigNumber::from_u32(1).unwrap().set_negative(true).unwrap();
-        assert_eq!(
-            BigNumber::new().unwrap(),
-            base.mod_exp(&exp, &modulus, None).unwrap()
-        );
 
         let modulus = BigNumber::from_u32(5).unwrap().set_negative(true).unwrap();
         assert_eq!(

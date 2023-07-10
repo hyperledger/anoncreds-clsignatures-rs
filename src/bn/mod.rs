@@ -16,12 +16,18 @@ pub(crate) static BIGNUMBER_2: Lazy<BigNumber> = Lazy::new(|| BigNumber::from_u3
 pub fn _generate_prime_in_range(size_bits: usize, range_bits: usize) -> Result<BigNumber, Error> {
     trace!("bn::_generate_prime_in_range: >>> size: {size_bits}, range: {range_bits}",);
 
-    let size_bytes = (size_bits + 7) / 8;
-    assert!(size_bytes > 2);
-    let range_bytes = ((range_bits + 7) / 8).min(size_bytes);
-    assert!(range_bytes > 2);
-    let size_top_bits = (size_bits + 7) % 8;
-    let range_top_bits = (range_bits + 7) % 8;
+    // size_bits defines the number of bits in the result, such that the minimum result
+    // value is 2^size_bits (ie. the total number of bits is size_bits + 1).
+    // range_bits defines the variability within that range, such that
+    // the last 2^range_bits are randomly chosen.
+
+    assert!(size_bits > 1);
+    assert!(range_bits > 1 && range_bits <= size_bits);
+
+    let size_bytes = size_bits / 8 + 1;
+    let range_bytes = range_bits / 8 + 1;
+    let size_top_bits = size_bits % 8;
+    let range_top_bits = range_bits % 8;
     let range_top_offs = size_bytes - range_bytes;
     let mut buf = vec![0u8; size_bytes];
     let mut iteration = 0;
@@ -34,7 +40,7 @@ pub fn _generate_prime_in_range(size_bits: usize, range_bits: usize) -> Result<B
         // only odd candidates
         buf[size_bytes - 1] |= 1;
         // ensure within range
-        buf[range_top_offs] &= !(u8::MAX << range_top_bits);
+        buf[range_top_offs] &= u8::MAX >> (8 - range_top_bits);
         // ensure within size
         buf[0] |= 1 << size_top_bits;
 
@@ -132,16 +138,16 @@ mod tests {
     #[test]
     fn generate_prime_in_range_works() {
         let start = BIGNUMBER_2
-            .exp(&BigNumber::from_u32(RANGE_START - 1).unwrap(), None)
+            .exp(&BigNumber::from_u32(RANGE_START).unwrap(), None)
             .unwrap();
         let end = BIGNUMBER_2
-            .exp(&BigNumber::from_u32(RANGE_SIZE - 1).unwrap(), None)
+            .exp(&BigNumber::from_u32(RANGE_SIZE).unwrap(), None)
             .unwrap()
             .add(&start)
             .unwrap();
         let random_prime = _generate_prime_in_range(RANGE_START, RANGE_SIZE).unwrap();
-        assert!(start < random_prime);
-        assert!(end > random_prime);
+        assert!(start < random_prime, "{start:?} >= {random_prime:?}");
+        assert!(end >= random_prime, "{end:?} < {random_prime:?}");
     }
 
     #[test]

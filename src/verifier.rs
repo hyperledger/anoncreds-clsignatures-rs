@@ -579,7 +579,7 @@ impl ProofVerifier {
         trace!("ProofVerifier::_verify_non_revocation_proof: >>> r_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}, c_hash: {:?}",
                r_pub_key, rev_reg, rev_key_pub, c_hash);
 
-        let ch_num_z = bignum_to_group_element(c_hash)?;
+        let ch_num_z = bignum_to_group_element_reduce(c_hash, None)?;
         let mut m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2, None)?;
         let mut c = ch_num_z.mod_neg()?;
 

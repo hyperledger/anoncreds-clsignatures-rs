@@ -1806,7 +1806,7 @@ impl ProofBuilder {
             c_h
         );
 
-        let ch_num_z = bignum_to_group_element(c_h)?;
+        let ch_num_z = bignum_to_group_element_reduce(c_h, None)?;
         let mut x_list: Vec<GroupOrderElement> = Vec::new();
 
         for (x, y) in init_proof

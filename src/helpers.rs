@@ -489,17 +489,6 @@ pub fn four_squares(delta: i32) -> ClResult<HashMap<String, BigNumber>> {
     Ok(res)
 }
 
-#[inline(always)]
-pub fn group_element_to_bignum(el: &GroupOrderElement) -> ClResult<BigNumber> {
-    BigNumber::from_bytes(&el.to_bytes()?)
-}
-
-#[inline(always)]
-pub fn bignum_to_group_element(num: &BigNumber) -> ClResult<GroupOrderElement> {
-    GroupOrderElement::from_bytes(&num.to_bytes()?)
-}
-
-#[inline(always)]
 pub fn bignum_to_group_element_reduce(
     num: &BigNumber,
     ctx: Option<&mut BigNumberContext>,

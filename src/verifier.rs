@@ -47,6 +47,7 @@ impl Verifier {
         Ok(ProofVerifier {
             credentials: Vec::new(),
             common_attributes: HashMap::new(),
+            accept_legacy_revocation: false,
         })
     }
 }
@@ -55,9 +56,15 @@ impl Verifier {
 pub struct ProofVerifier {
     credentials: Vec<VerifiableCredential>,
     common_attributes: HashMap<String, Option<BigNumber>>,
+    accept_legacy_revocation: bool,
 }
 
 impl ProofVerifier {
+    /// Enable verification of 'legacy' (non-linked) revocation proofs
+    pub fn accept_legacy_revocation(&mut self, flag: bool) {
+        self.accept_legacy_revocation = flag;
+    }
+
     /// Attributes that are supposed to have same value across all subproofs.
     /// The verifier first enters attribute names in the hashmap before proof verification starts.
     /// The hashmap is again updated during verification of sub proofs by the blinded value of attributes (`m_hat`s in paper)
@@ -216,26 +223,7 @@ impl ProofVerifier {
     /// assert!(proof_verifier.verify(&proof, &proof_request_nonce).unwrap());
     /// ```
     pub fn verify(&mut self, proof: &Proof, nonce: &Nonce) -> ClResult<bool> {
-        self._verify(proof, nonce, false)
-    }
-
-    /// Verifies a proof, also accepting the older non-revocation proof format.
-    pub fn verify_legacy(&mut self, proof: &Proof, nonce: &Nonce) -> ClResult<bool> {
-        self._verify(proof, nonce, true)
-    }
-
-    pub fn _verify(
-        &mut self,
-        proof: &Proof,
-        nonce: &Nonce,
-        accept_legacy_revoc: bool,
-    ) -> ClResult<bool> {
-        trace!(
-            "ProofVerifier::verify: >>> proof: {:?}, nonce: {:?}, accept_legacy_revoc: {}",
-            proof,
-            nonce,
-            accept_legacy_revoc
-        );
+        trace!("ProofVerifier::verify: >>> proof: {proof:?}, nonce: {nonce:?}");
 
         ProofVerifier::_check_verify_params_consistency(&self.credentials, proof)?;
 
@@ -262,7 +250,7 @@ impl ProofVerifier {
                     &proof.aggregated_proof.c_hash,
                     &proof_item.primary_proof,
                     non_revocation_proof,
-                    accept_legacy_revoc,
+                    self.accept_legacy_revocation,
                 )?;
                 tau_list.extend_from_slice(&sub_tau_list.as_slice()?);
             };

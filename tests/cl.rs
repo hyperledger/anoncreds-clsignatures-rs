@@ -1877,7 +1877,8 @@ mod openssl_tests {
                 )
                 .unwrap();
             assert!(!proof_verifier.verify(&proof, &nonce).unwrap());
-            assert!(proof_verifier.verify_legacy(&proof, &nonce).unwrap());
+            proof_verifier.accept_legacy_revocation(true);
+            assert!(proof_verifier.verify(&proof, &nonce).unwrap());
         }
 
         #[test]

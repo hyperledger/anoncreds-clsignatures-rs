@@ -164,10 +164,10 @@ impl ProofVerifier {
     ///
     /// let (credential_pub_key, credential_priv_key, cred_key_correctness_proof) = Issuer::new_credential_def(&credential_schema, &non_credential_schema, false).unwrap();
     ///
-    /// let master_secret = Prover::new_master_secret().unwrap();
+    /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &master_secret.value().unwrap()).unwrap();
+    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///

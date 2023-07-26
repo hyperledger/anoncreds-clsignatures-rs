@@ -31,7 +31,7 @@ mod cl_bench_tests {
     fn get_credential_values(master_secret: &MasterSecret) -> CredentialValues {
         let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
         credential_values_builder
-            .add_value_hidden("master_secret", &master_secret.value().unwrap())
+            .add_value_hidden("master_secret", &link_secret.value().unwrap())
             .unwrap();
         credential_values_builder
             .add_dec_known("name", "1139481716457488690172217916278103335")
@@ -96,7 +96,7 @@ mod cl_bench_tests {
 
         let start = Instant::now();
         for i in 0..max_cred_num {
-            let credential_values = get_credential_values(&Prover::new_master_secret().unwrap());
+            let credential_values = get_credential_values(&Prover::new_link_secret().unwrap());
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let blinding_correctness_nonce = new_nonce().unwrap();

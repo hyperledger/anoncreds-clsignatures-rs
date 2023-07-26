@@ -19,10 +19,10 @@ fn get_non_credential_schema() -> NonCredentialSchema {
     non_credential_schema_builder.finalize().unwrap()
 }
 
-fn get_credential_values(master_secret: &MasterSecret) -> CredentialValues {
+fn get_credential_values(link_secret: &LinkSecret) -> CredentialValues {
     let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
     credential_values_builder
-        .add_value_hidden("master_secret", &master_secret.value().unwrap())
+        .add_value_hidden("master_secret", &link_secret.value().unwrap())
         .unwrap();
     credential_values_builder
         .add_dec_known("name", "1139481716457488690172217916278103335")
@@ -101,7 +101,7 @@ fn setup_cred_and_issue(
     let start = Instant::now();
     let max_issue = max_cred_num.min(100);
     for i in 0..max_issue {
-        let credential_values = get_credential_values(&Prover::new_master_secret().unwrap());
+        let credential_values = get_credential_values(&Prover::new_link_secret().unwrap());
 
         // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
         let blinding_correctness_nonce = new_nonce().unwrap();

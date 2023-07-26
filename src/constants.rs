@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 
 use crate::bn::{BigNumber, BIGNUMBER_2};
 
-pub const LARGE_MASTER_SECRET: usize = 256;
+pub const LARGE_LINK_SECRET: usize = 256;
 pub const LARGE_E_START: usize = 596;
 pub const LARGE_E_END_RANGE: usize = 119;
 pub const LARGE_PRIME: usize = 1024;

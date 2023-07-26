@@ -790,21 +790,21 @@ pub struct WitnessSignature {
 
 /// Secret key encoded in a credential that is used to prove that prover owns the credential; can be used to
 /// prove linkage across credentials.
-/// Prover blinds master secret, generating `BlindedCredentialSecrets` and `CredentialSecretsBlindingFactors` (blinding factors)
+/// Prover blinds link secret, generating `BlindedCredentialSecrets` and `CredentialSecretsBlindingFactors` (blinding factors)
 /// and sends the `BlindedCredentialSecrets` to Issuer who then encodes it credential creation.
 /// The blinding factors are used by Prover for post processing of issued credentials.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
-pub struct MasterSecret {
+pub struct LinkSecret {
     pub(crate) ms: BigNumber,
 }
 
-impl MasterSecret {
+impl LinkSecret {
     pub fn value(&self) -> ClResult<BigNumber> {
         self.ms.try_clone()
     }
 
-    pub fn try_clone(&self) -> ClResult<MasterSecret> {
+    pub fn try_clone(&self) -> ClResult<LinkSecret> {
         Ok(Self { ms: self.value()? })
     }
 }

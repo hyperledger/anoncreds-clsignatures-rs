@@ -14,17 +14,17 @@ use crate::types::*;
 pub struct Prover;
 
 impl Prover {
-    /// Creates a master secret.
+    /// Creates a link secret.
     ///
     /// # Example
     /// ```
     /// use anoncreds_clsignatures::Prover;
     ///
-    /// let _master_secret = Prover::new_master_secret().unwrap();
+    /// let _link_secret = Prover::new_link_secret().unwrap();
     /// ```
-    pub fn new_master_secret() -> ClResult<MasterSecret> {
-        Ok(MasterSecret {
-            ms: bn_rand(LARGE_MASTER_SECRET)?,
+    pub fn new_link_secret() -> ClResult<LinkSecret> {
+        Ok(LinkSecret {
+            ms: bn_rand(LARGE_LINK_SECRET)?,
         })
     }
 
@@ -52,11 +52,11 @@ impl Prover {
     ///
     /// let (credential_pub_key, _credential_priv_key, cred_key_correctness_proof) = Issuer::new_credential_def(&credential_schema, &non_credential_schema_elements, false).unwrap();
     ///
-    /// let master_secret = Prover::new_master_secret().unwrap();
+    /// let link_secret = Prover::new_link_secret().unwrap();
     /// let credential_nonce = new_nonce().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &master_secret.value().unwrap()).unwrap();
+    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let (_blinded_credential_secrets, _credential_secrets_blinding_factors, _blinded_credential_secrets_correctness_proof) =
@@ -168,11 +168,11 @@ impl Prover {
     ///
     /// let (credential_pub_key, credential_priv_key, cred_key_correctness_proof) = Issuer::new_credential_def(&credential_schema, &non_credential_schema, false).unwrap();
     ///
-    /// let master_secret = Prover::new_master_secret().unwrap();
+    /// let link_secret = Prover::new_link_secret().unwrap();
     /// let credential_nonce = new_nonce().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &master_secret.value().unwrap()).unwrap();
+    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
@@ -851,11 +851,11 @@ impl ProofBuilder {
     ///
     /// let (credential_pub_key, credential_priv_key, cred_key_correctness_proof) = Issuer::new_credential_def(&credential_schema, &non_credential_schema, false).unwrap();
     ///
-    /// let master_secret = Prover::new_master_secret().unwrap();
+    /// let link_secret = Prover::new_link_secret().unwrap();
     /// let credential_nonce = new_nonce().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &master_secret.value().unwrap()).unwrap();
+    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
@@ -1004,10 +1004,10 @@ impl ProofBuilder {
     ///
     /// let (credential_pub_key, credential_priv_key, cred_key_correctness_proof) = Issuer::new_credential_def(&credential_schema, &non_credential_schema, false).unwrap();
     ///
-    /// let master_secret = Prover::new_master_secret().unwrap();
+    /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &master_secret.value().unwrap());
+    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
@@ -1887,7 +1887,7 @@ mod tests {
     fn generate_master_secret_works() {
         MockHelper::inject();
 
-        let ms = Prover::new_master_secret().unwrap();
+        let ms = Prover::new_link_secret().unwrap();
         assert_eq!(
             ms.ms.to_dec().unwrap(),
             mocks::master_secret().ms.to_dec().unwrap()
@@ -2507,8 +2507,8 @@ pub mod mocks {
 
     pub const PROVER_DID: &str = "CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW";
 
-    pub fn master_secret() -> MasterSecret {
-        MasterSecret {
+    pub fn master_secret() -> LinkSecret {
+        LinkSecret {
             ms: BigNumber::from_dec(
                 "21578029250517794450984707538122537192839006240802068037273983354680998203845",
             )

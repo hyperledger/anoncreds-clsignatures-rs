@@ -1369,6 +1369,7 @@ mod openssl_tests {
             assert!(proof_verifier.verify(&proof, &nonce).unwrap());
         }
 
+        #[cfg(feature = "serde")]
         #[test]
         fn anoncreds_works_for_unlinked_revocation_proof() {
             // 1. Issuer creates credential schema

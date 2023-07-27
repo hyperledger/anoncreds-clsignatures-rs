@@ -403,6 +403,10 @@ pub type Accumulator = PointG2;
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RevocationRegistry {
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::amcl::deserialize_allow_inf")
+    )]
     pub accum: Accumulator,
 }
 
@@ -426,14 +430,29 @@ impl From<&RevocationRegistry> for RevocationRegistryDelta {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RevocationRegistryDelta {
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "Option::is_none"),
+        serde(deserialize_with = "crate::amcl::deserialize_opt_allow_inf")
+    )]
     pub(crate) prev_accum: Option<Accumulator>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "crate::amcl::deserialize_allow_inf")
+    )]
     pub(crate) accum: Accumulator,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "HashSet::is_empty"))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "HashSet::is_empty")
+    )]
     pub(crate) issued: HashSet<u32>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "HashSet::is_empty"))]
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "HashSet::is_empty")
+    )]
     pub(crate) revoked: HashSet<u32>,
 }
 
@@ -1324,12 +1343,6 @@ impl BytesView for BigNumber {
     }
 }
 
-impl BytesView for PointG1 {
-    fn to_bytes(&self) -> ClResult<Vec<u8>> {
-        self.to_bytes()
-    }
-}
-
 impl BytesView for GroupOrderElement {
     fn to_bytes(&self) -> ClResult<Vec<u8>> {
         self.to_bytes()
@@ -1381,5 +1394,11 @@ mod tests {
             let acc2 = Tail::accum_range(&g_dash, &gamma, range.clone()).unwrap();
             assert_eq!(acc1, acc2, "Invalid accum for range {:?}", range);
         }
+    }
+
+    #[test]
+    fn deser_infinity_accum() {
+        let reg: RevocationRegistry = serde_json::from_str(r#"{"accum":"1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000"}"#).unwrap();
+        assert!(reg.accum.is_inf().unwrap());
     }
 }

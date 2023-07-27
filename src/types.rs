@@ -1,5 +1,6 @@
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 use std::iter::FromIterator;
@@ -397,16 +398,35 @@ pub struct CredentialRevocationPrivateKey {
 
 pub type Accumulator = PointG2;
 
+#[cfg(feature = "serde")]
+pub(crate) fn deserialize_accum<'d, D>(deserializer: D) -> Result<Accumulator, D::Error>
+where
+    D: Deserializer<'d>,
+{
+    deserializer.deserialize_str(StrVisitor("expected PointG2", Accumulator::from_string_inf))
+}
+
+#[cfg(feature = "serde")]
+pub(crate) fn deserialize_opt_accum<'d, D>(deserializer: D) -> Result<Option<Accumulator>, D::Error>
+where
+    D: Deserializer<'d>,
+{
+    #[derive(Debug, Deserialize)]
+    struct WrapAccumulator {
+        #[serde(deserialize_with = "deserialize_accum")]
+        inner: Accumulator,
+    }
+
+    Ok(Option::<WrapAccumulator>::deserialize(deserializer)?.map(|p| p.inner))
+}
+
 /// `Revocation Registry` contains accumulator.
 /// Must be published by Issuer on a tamper-evident and highly available storage
 /// Used by prover to prove that a credential hasn't revoked by the issuer
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RevocationRegistry {
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "crate::amcl::deserialize_allow_inf")
-    )]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_accum"))]
     pub accum: Accumulator,
 }
 
@@ -427,20 +447,17 @@ impl From<&RevocationRegistry> for RevocationRegistryDelta {
 /// `Revocation Registry Delta` contains Accumulator changes.
 /// Must be applied to `Revocation Registry`
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RevocationRegistryDelta {
     #[cfg_attr(
         feature = "serde",
         serde(default),
         serde(skip_serializing_if = "Option::is_none"),
-        serde(deserialize_with = "crate::amcl::deserialize_opt_allow_inf")
+        serde(deserialize_with = "deserialize_opt_accum")
     )]
     pub(crate) prev_accum: Option<Accumulator>,
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "crate::amcl::deserialize_allow_inf")
-    )]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_accum"))]
     pub(crate) accum: Accumulator,
     #[cfg_attr(
         feature = "serde",
@@ -1400,6 +1417,6 @@ mod tests {
     #[test]
     fn deser_infinity_accum() {
         let reg: RevocationRegistry = serde_json::from_str(r#"{"accum":"1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000"}"#).unwrap();
-        assert!(reg.accum.is_inf().unwrap());
+        assert_eq!(reg.accum, Accumulator::new_generator().unwrap());
     }
 }

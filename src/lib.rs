@@ -23,7 +23,6 @@ pub mod bn;
 mod types;
 
 pub use {
-    self::amcl::CurvePoint,
     self::error::{Error, ErrorKind},
     self::helpers::{hash_credential_attribute, new_nonce},
     self::issuer::Issuer,

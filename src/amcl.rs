@@ -11,6 +11,7 @@ use amcl::bn254::rom::{
 use amcl::rand::RAND;
 
 use std::fmt::{self, Debug, Formatter};
+#[cfg(feature = "serde")]
 use std::marker::PhantomData;
 
 #[cfg(feature = "serde")]
@@ -77,7 +78,7 @@ fn _random_mod_order() -> ClResult<BIG> {
     Ok(BIG::randomnum(&ORDER, &mut rng))
 }
 
-pub trait CurvePoint: Debug + Serialize + for<'a> Deserialize<'a> + Sized {
+pub trait CurvePoint: Debug + Sized {
     const BYTES_REPR_SIZE: usize;
 
     /// Creates new random point
@@ -785,11 +786,13 @@ fn is_valid_pair(point: &FP12) -> bool {
     lhs.equals(&rhs)
 }
 
+#[cfg(feature = "serde")]
 pub(crate) struct CurvePointVisitor<P> {
     allow_inf: bool,
     _pd: PhantomData<P>,
 }
 
+#[cfg(feature = "serde")]
 impl<P> CurvePointVisitor<P> {
     pub fn new(allow_inf: bool) -> Self {
         Self {
@@ -799,12 +802,14 @@ impl<P> CurvePointVisitor<P> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<P> Default for CurvePointVisitor<P> {
     fn default() -> Self {
         Self::new(false)
     }
 }
 
+#[cfg(feature = "serde")]
 impl<'a, P: CurvePoint> Visitor<'a> for CurvePointVisitor<P> {
     type Value = P;
 
@@ -824,12 +829,14 @@ impl<'a, P: CurvePoint> Visitor<'a> for CurvePointVisitor<P> {
     }
 }
 
+#[cfg(feature = "serde")]
 #[derive(Debug, Deserialize)]
 struct InfPoint<P: CurvePoint> {
     #[serde(deserialize_with = "deserialize_allow_inf")]
     inner: P,
 }
 
+#[cfg(feature = "serde")]
 pub fn deserialize_allow_inf<'de, D, P>(data: D) -> Result<P, D::Error>
 where
     D: Deserializer<'de>,
@@ -838,6 +845,7 @@ where
     data.deserialize_str(CurvePointVisitor::<P>::new(true))
 }
 
+#[cfg(feature = "serde")]
 pub fn deserialize_opt_allow_inf<'de, D, P>(data: D) -> Result<Option<P>, D::Error>
 where
     D: Deserializer<'de>,

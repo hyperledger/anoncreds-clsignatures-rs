@@ -5,7 +5,7 @@ use std::hash::Hash;
 #[cfg(test)]
 use std::cell::RefCell;
 
-use crate::amcl::{GroupOrderElement, Pair, PointG1};
+use crate::amcl::{CurvePoint, GroupOrderElement, Pair, PointG1};
 use crate::bn::{BigNumber, BigNumberContext, _generate_prime_in_range, BIGNUMBER_1};
 use crate::constants::*;
 use crate::error::Result as ClResult;

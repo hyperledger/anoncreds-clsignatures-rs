@@ -13,6 +13,8 @@ use amcl::bn254::rom::{
 use amcl::rand::RAND;
 
 use std::fmt::{self, Debug, Formatter};
+use std::marker::PhantomData;
+use std::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -23,7 +25,7 @@ use rand::prelude::*;
 use std::cell::RefCell;
 
 use crate::bn::BigNumber;
-use crate::error::Result as ClResult;
+use crate::error::{Error as ClError, Result as ClResult};
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
 
@@ -77,16 +79,51 @@ fn _random_mod_order() -> ClResult<BIG> {
     Ok(BIG::randomnum(&ORDER, &mut rng))
 }
 
+pub trait CurvePoint: Debug + Serialize + for<'a> Deserialize<'a> + Sized {
+    const BYTES_REPR_SIZE: usize;
+
+    /// Creates new random point
+    fn new() -> ClResult<Self>;
+
+    /// Creates new infinity point
+    fn new_inf() -> ClResult<Self>;
+
+    /// Checks infinity
+    fn is_inf(&self) -> ClResult<bool>;
+
+    /// Encode in hexadecimal format
+    fn to_string(&self) -> ClResult<String>;
+
+    /// Decode from hexadecimal format
+    fn from_string(val: &str) -> ClResult<Self> {
+        let res = Self::from_string_inf(val)?;
+        if res.is_inf()? {
+            Err(err_msg!("Invalid point: infinity"))
+        } else {
+            Ok(res)
+        }
+    }
+
+    /// Decode from hexadecimal format, allowing for the infinity point
+    fn from_string_inf(val: &str) -> ClResult<Self>;
+
+    /// Encode in binary format (big endian)
+    fn to_bytes(&self) -> ClResult<Vec<u8>>;
+
+    /// Decode from binary (big endian) format
+    fn from_bytes(b: &[u8]) -> ClResult<Self>;
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub struct PointG1 {
     point: ECP,
 }
 
-impl PointG1 {
-    pub const BYTES_REPR_SIZE: usize = MODBYTES * 4;
+impl CurvePoint for PointG1 {
+    const BYTES_REPR_SIZE: usize = MODBYTES * 4;
 
     /// Creates new random PointG1
-    pub fn new() -> ClResult<PointG1> {
+    fn new() -> ClResult<PointG1> {
         // generate random point from the group G1
         let point_x = BIG::new_ints(&CURVE_GX);
         let point_y = BIG::new_ints(&CURVE_GY);
@@ -98,26 +135,49 @@ impl PointG1 {
     }
 
     /// Creates new infinity PointG1
-    pub fn new_inf() -> ClResult<PointG1> {
+    fn new_inf() -> ClResult<PointG1> {
         let mut r = ECP::new();
         r.inf();
         Ok(PointG1 { point: r })
     }
 
     /// Checks infinity
-    pub fn is_inf(&self) -> ClResult<bool> {
+    fn is_inf(&self) -> ClResult<bool> {
         Ok(self.point.is_infinity())
     }
 
-    /// PointG1 ^ GroupOrderElement
-    pub fn mul(&self, e: &GroupOrderElement) -> ClResult<PointG1> {
-        let r = self.point;
-        let mut bn = e.bn;
-        Ok(PointG1 {
-            point: g1mul(&r, &mut bn),
-        })
+    fn to_string(&self) -> ClResult<String> {
+        Ok(self.point.to_hex())
     }
 
+    fn from_string_inf(val: &str) -> ClResult<PointG1> {
+        pre_validate_point(val, 3)?;
+        let mut point = ECP::from_hex(val.to_string());
+        if is_valid_ecp(&point) {
+            Ok(PointG1 { point })
+        } else {
+            Err(err_msg!("Invalid PointG1"))
+        }
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
+        self.point.tobytes(&mut vec, false);
+        Ok(vec)
+    }
+
+    fn from_bytes(b: &[u8]) -> ClResult<PointG1> {
+        if b.len() != Self::BYTES_REPR_SIZE {
+            Err(err_msg!("Invalid byte length for PointG1"))
+        } else {
+            Ok(PointG1 {
+                point: ECP::frombytes(b),
+            })
+        }
+    }
+}
+
+impl PointG1 {
     /// PointG1 * PointG1
     pub fn add(&self, q: &PointG1) -> ClResult<PointG1> {
         let mut r = self.point;
@@ -141,34 +201,13 @@ impl PointG1 {
         Ok(PointG1 { point: r })
     }
 
-    pub fn to_string(&self) -> ClResult<String> {
-        Ok(self.point.to_hex())
-    }
-
-    pub fn from_string(val: &str) -> ClResult<PointG1> {
-        pre_validate_point(val, 3)?;
-        let mut point = ECP::from_hex(val.to_string());
-        if is_valid_ecp(&point) {
-            Ok(PointG1 { point })
-        } else {
-            Err(err_msg!("Invalid PointG1"))
-        }
-    }
-
-    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
-        let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
-        self.point.tobytes(&mut vec, false);
-        Ok(vec)
-    }
-
-    pub fn from_bytes(b: &[u8]) -> ClResult<PointG1> {
-        if b.len() != Self::BYTES_REPR_SIZE {
-            Err(err_msg!("Invalid byte length for PointG1"))
-        } else {
-            Ok(PointG1 {
-                point: ECP::frombytes(b),
-            })
-        }
+    /// PointG1 ^ GroupOrderElement
+    pub fn mul(&self, e: &GroupOrderElement) -> ClResult<PointG1> {
+        let r = self.point;
+        let mut bn = e.bn;
+        Ok(PointG1 {
+            point: g1mul(&r, &mut bn),
+        })
     }
 
     pub fn from_hash(hash: &[u8]) -> ClResult<PointG1> {
@@ -209,24 +248,7 @@ impl<'a> Deserialize<'a> for PointG1 {
     where
         D: Deserializer<'a>,
     {
-        struct PointG1Visitor;
-
-        impl<'a> Visitor<'a> for PointG1Visitor {
-            type Value = PointG1;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("expected PointG1")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<PointG1, E>
-            where
-                E: serde::de::Error,
-            {
-                PointG1::from_string(value).map_err(E::custom)
-            }
-        }
-
-        deserializer.deserialize_str(PointG1Visitor)
+        deserializer.deserialize_str(CurvePointVisitor::<PointG1>::default())
     }
 }
 
@@ -235,11 +257,11 @@ pub struct PointG2 {
     point: ECP2,
 }
 
-impl PointG2 {
-    pub const BYTES_REPR_SIZE: usize = MODBYTES * 4;
+impl CurvePoint for PointG2 {
+    const BYTES_REPR_SIZE: usize = MODBYTES * 4;
 
     /// Creates new random PointG2
-    pub fn new() -> ClResult<PointG2> {
+    fn new() -> ClResult<PointG2> {
         let point_xa = BIG::new_ints(&CURVE_PXA);
         let point_xb = BIG::new_ints(&CURVE_PXB);
         let point_ya = BIG::new_ints(&CURVE_PYA);
@@ -256,18 +278,49 @@ impl PointG2 {
     }
 
     /// Creates new infinity PointG2
-    pub fn new_inf() -> ClResult<PointG2> {
+    fn new_inf() -> ClResult<PointG2> {
         let mut point = ECP2::new();
         point.inf();
-
         Ok(PointG2 { point })
     }
 
     /// Checks infinity
-    pub fn is_inf(&self) -> ClResult<bool> {
+    fn is_inf(&self) -> ClResult<bool> {
         Ok(self.point.is_infinity())
     }
 
+    fn to_string(&self) -> ClResult<String> {
+        Ok(self.point.to_hex())
+    }
+
+    fn from_string_inf(val: &str) -> ClResult<PointG2> {
+        pre_validate_point(val, 6)?;
+        let mut point = ECP2::from_hex(val.to_string());
+        if is_valid_ecp2(&point) {
+            Ok(PointG2 { point })
+        } else {
+            Err(err_msg!("Invalid PointG2"))
+        }
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
+        self.point.tobytes(&mut vec);
+        Ok(vec)
+    }
+
+    fn from_bytes(b: &[u8]) -> ClResult<PointG2> {
+        if b.len() != Self::BYTES_REPR_SIZE {
+            Err(err_msg!("Invalid byte length for PointG2"))
+        } else {
+            Ok(PointG2 {
+                point: ECP2::frombytes(b),
+            })
+        }
+    }
+}
+
+impl PointG2 {
     /// PointG2 * PointG2
     pub fn add(&self, q: &PointG2) -> ClResult<PointG2> {
         let mut r = self.point;
@@ -300,36 +353,6 @@ impl PointG2 {
             point: g2mul(&r, &bn),
         })
     }
-
-    pub fn to_string(&self) -> ClResult<String> {
-        Ok(self.point.to_hex())
-    }
-
-    pub fn from_string(val: &str) -> ClResult<PointG2> {
-        pre_validate_point(val, 6)?;
-        let mut point = ECP2::from_hex(val.to_string());
-        if is_valid_ecp2(&point) {
-            Ok(PointG2 { point })
-        } else {
-            Err(err_msg!("Invalid PointG2"))
-        }
-    }
-
-    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
-        let mut vec = vec![0u8; Self::BYTES_REPR_SIZE];
-        self.point.tobytes(&mut vec);
-        Ok(vec)
-    }
-
-    pub fn from_bytes(b: &[u8]) -> ClResult<PointG2> {
-        if b.len() != Self::BYTES_REPR_SIZE {
-            Err(err_msg!("Invalid byte length for PointG2"))
-        } else {
-            Ok(PointG2 {
-                point: ECP2::frombytes(b),
-            })
-        }
-    }
 }
 
 impl Debug for PointG2 {
@@ -357,24 +380,7 @@ impl<'a> Deserialize<'a> for PointG2 {
     where
         D: Deserializer<'a>,
     {
-        struct PointG2Visitor;
-
-        impl<'a> Visitor<'a> for PointG2Visitor {
-            type Value = PointG2;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("expected PointG2")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<PointG2, E>
-            where
-                E: serde::de::Error,
-            {
-                PointG2::from_string(value).map_err(E::custom)
-            }
-        }
-
-        deserializer.deserialize_str(PointG2Visitor)
+        deserializer.deserialize_str(CurvePointVisitor::<PointG2>::default())
     }
 }
 
@@ -557,6 +563,7 @@ pub struct Pair {
 
 impl Pair {
     pub const BYTES_REPR_SIZE: usize = MODBYTES * 16;
+
     /// e(PointG1, PointG2)
     pub fn pair(p: &PointG1, q: &PointG2) -> ClResult<Self> {
         let mut result = fexp(&ate(&q.point, &p.point));
@@ -733,7 +740,7 @@ fn is_valid_ecp(point: &ECP) -> bool {
     rhs.sqr();
     rhs.mul(&z);
     rhs.dbl(); // b = 2
-    lhs.equals(&rhs) && !point.is_infinity()
+    lhs.equals(&rhs)
 }
 
 fn is_valid_ecp2(point: &ECP2) -> bool {
@@ -757,13 +764,13 @@ fn is_valid_ecp2(point: &ECP2) -> bool {
     rhs.mul(&z);
     let bp = FP2::new_fps(&FP::new_int(1), &FP::new_int(-1)); // b' = b/ξ = 1 - i
     rhs.mul(&bp);
-    lhs.equals(&rhs) && !point.is_infinity()
+    lhs.equals(&rhs)
 }
 
 fn is_valid_pair(point: &FP12) -> bool {
     // Subgroup security in pairing-based cryptography
     // Section 5.2  https://eprint.iacr.org/2015/247
-    // Check that g^(p^4 - p^2 + 1) = 1  ==>  g^p^4 * g == g^p^2
+    // Check that g^(p^4 - p^2 + 1) = 1  ==>  g^(p^4 + 1) == g^(p^2)
     let f = FP2::new_bigs(
         &BIG::new_ints(&amcl::bn254::rom::FRA),
         &BIG::new_ints(&amcl::bn254::rom::FRB),
@@ -776,6 +783,67 @@ fn is_valid_pair(point: &FP12) -> bool {
     rhs.frob(&f);
     rhs.mul(&point);
     lhs.equals(&rhs)
+}
+
+pub(crate) struct CurvePointVisitor<P> {
+    allow_inf: bool,
+    _pd: PhantomData<P>,
+}
+
+impl<P> CurvePointVisitor<P> {
+    pub fn new(allow_inf: bool) -> Self {
+        Self {
+            allow_inf,
+            _pd: PhantomData,
+        }
+    }
+}
+
+impl<P> Default for CurvePointVisitor<P> {
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+impl<'a, P: CurvePoint> Visitor<'a> for CurvePointVisitor<P> {
+    type Value = P;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("expected curve point")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<P, E>
+    where
+        E: serde::de::Error,
+    {
+        if self.allow_inf {
+            P::from_string_inf(value).map_err(E::custom)
+        } else {
+            P::from_string(value).map_err(E::custom)
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct InfPoint<P: CurvePoint> {
+    #[serde(deserialize_with = "deserialize_allow_inf")]
+    inner: P,
+}
+
+pub fn deserialize_allow_inf<'de, D, P>(data: D) -> Result<P, D::Error>
+where
+    D: Deserializer<'de>,
+    P: CurvePoint,
+{
+    data.deserialize_str(CurvePointVisitor::<P>::new(true))
+}
+
+pub fn deserialize_opt_allow_inf<'de, D, P>(data: D) -> Result<Option<P>, D::Error>
+where
+    D: Deserializer<'de>,
+    P: CurvePoint,
+{
+    Ok(Option::<InfPoint<P>>::deserialize(data)?.map(|p| p.inner))
 }
 
 #[cfg(test)]
@@ -930,8 +998,10 @@ mod serialization_tests {
         assert!(PointG1::from_string(",").is_err());
         // check non-subgroup point
         assert!(PointG1::from_string("1 09181F00DD41F2F92026FC20E189DE31926EEE6E05C6A17E676556E08075C6 1 09BC971251F977993486B19600760C4F972925D98934EA6B2D0BEC671398C0 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8").is_err());
-        // check infinity
+        // check disallowed infinity
         assert!(PointG1::from_string("1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").is_err());
+        // check allowed infinity
+        assert!(PointG1::from_string_inf("1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").is_ok());
     }
 
     #[test]
@@ -947,8 +1017,10 @@ mod serialization_tests {
         assert!(PointG2::from_string(",").is_err());
         // check non-subgroup point
         assert!(PointG2::from_string("1 16027A65C15E16E00BFCAD948F216B5CFBE07B98876D8889A5DEE03DE7C57B 1 0EC9DBC2286A9485A0DA8525C5BE0F88E27C2B3C337E522DDC170C1764D615 1 1A021C8EFE70DCC7F81DD8E8CDC74F3D64E63E886C73B3A8B9849696E99FF3 1 2505CB0CFAAE75ACCAF60CB5A9F7E7A8250918155886E7FFF9A32D7B5A0500 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8 1 00000000000000000000000000000000000000000000000000000000000000").is_err());
-        // check infinity
+        // check disallowed infinity
         assert!(PointG2::from_string("1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000").is_err());
+        // check allowed infinity
+        assert!(PointG2::from_string_inf("1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 2 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000").is_ok());
     }
 
     #[test]

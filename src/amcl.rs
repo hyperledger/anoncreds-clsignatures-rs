@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use amcl::bn254::big::BIG;
 use amcl::bn254::ecp::ECP;
 use amcl::bn254::ecp2::ECP2;
@@ -14,7 +12,6 @@ use amcl::rand::RAND;
 
 use std::fmt::{self, Debug, Formatter};
 use std::marker::PhantomData;
-use std::str::FromStr;
 
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -25,7 +22,7 @@ use rand::prelude::*;
 use std::cell::RefCell;
 
 use crate::bn::BigNumber;
-use crate::error::{Error as ClError, Result as ClResult};
+use crate::error::Result as ClResult;
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
 
@@ -39,6 +36,7 @@ pub struct PairMocksHelper {}
 
 #[cfg(test)]
 impl PairMocksHelper {
+    #[allow(unused)]
     pub fn inject() {
         PAIR_USE_MOCKS.with(|use_mocks| {
             *use_mocks.borrow_mut() = true;
@@ -152,7 +150,7 @@ impl CurvePoint for PointG1 {
 
     fn from_string_inf(val: &str) -> ClResult<PointG1> {
         pre_validate_point(val, 3)?;
-        let mut point = ECP::from_hex(val.to_string());
+        let point = ECP::from_hex(val.to_string());
         if is_valid_ecp(&point) {
             Ok(PointG1 { point })
         } else {
@@ -210,6 +208,7 @@ impl PointG1 {
         })
     }
 
+    #[allow(unused)]
     pub fn from_hash(hash: &[u8]) -> ClResult<PointG1> {
         let mut el = GroupOrderElement::from_bytes(hash)?;
         let mut point = ECP::new_big(&el.bn);
@@ -295,7 +294,7 @@ impl CurvePoint for PointG2 {
 
     fn from_string_inf(val: &str) -> ClResult<PointG2> {
         pre_validate_point(val, 6)?;
-        let mut point = ECP2::from_hex(val.to_string());
+        let point = ECP2::from_hex(val.to_string());
         if is_valid_ecp2(&point) {
             Ok(PointG2 { point })
         } else {
@@ -580,6 +579,7 @@ impl Pair {
         Ok(Self { pair: result })
     }
 
+    #[allow(unused)]
     pub fn new_unity() -> ClResult<Self> {
         Ok(Self {
             pair: FP12::new_int(1),
@@ -725,7 +725,7 @@ const fn validate_hex(bytes: &[u8]) -> Option<usize> {
 fn is_valid_ecp(point: &ECP) -> bool {
     // validate point without inverting z:
     // (y/z)^2 = (x/z)^3 + b  -->  y^2z = x^3 + bz^3
-    let (x, mut z) = (point.getpx(), point.getpz());
+    let (x, z) = (point.getpx(), point.getpz());
     let mut lhs = point.getpy();
     lhs.reduce();
     lhs.sqr();
@@ -746,7 +746,7 @@ fn is_valid_ecp(point: &ECP) -> bool {
 fn is_valid_ecp2(point: &ECP2) -> bool {
     // validate point without inverting z:
     // (y/z)^2 = (x/z)^3 + b'  -->  y^2z = x^3 + b'z^3
-    let (x, mut z) = (point.getpx(), point.getpz());
+    let (x, z) = (point.getpx(), point.getpz());
     let mut lhs = point.getpy();
     lhs.reduce();
     lhs.norm();
@@ -858,7 +858,7 @@ mod tests {
 
     #[test]
     fn group_order_element_sub_mod() {
-        let mut res = GroupOrderElement::new().unwrap();
+        let res = GroupOrderElement::new().unwrap();
         assert_eq!(
             res.sub_mod(&res.mod_neg().unwrap()).unwrap(),
             res.add_mod(&res).unwrap()

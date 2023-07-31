@@ -763,9 +763,9 @@ impl Prover {
 
         let z_calc = Pair::pair2(
             &r_cred.witness_signature.g_i,
-            &rev_reg.accum,
+            &rev_reg.accum.0,
             &cred_rev_pub_key.g.neg()?,
-            &witness.omega,
+            &witness.omega.0,
         )?;
         if z_calc != rev_key_pub.z {
             return Err(err_msg!("Issuer is sending incorrect data"));
@@ -1738,7 +1738,10 @@ impl ProofBuilder {
 
         let g = r_cred.g_i.add(&r_pub_key.htilde.mul(&params.r)?)?;
 
-        let w = witness.omega.add(&r_pub_key.h_cap.mul(&params.r_prime)?)?;
+        let w = witness
+            .omega
+            .0
+            .add(&r_pub_key.h_cap.mul(&params.r_prime)?)?;
 
         let s = r_cred
             .witness_signature

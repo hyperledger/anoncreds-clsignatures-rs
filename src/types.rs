@@ -1,5 +1,5 @@
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
@@ -396,29 +396,7 @@ pub struct CredentialRevocationPrivateKey {
     pub(crate) sk: GroupOrderElement,
 }
 
-pub type Accumulator = PointG2;
-
-#[cfg(feature = "serde")]
-pub(crate) fn deserialize_accum<'d, D>(deserializer: D) -> Result<Accumulator, D::Error>
-where
-    D: Deserializer<'d>,
-{
-    deserializer.deserialize_str(StrVisitor("expected PointG2", Accumulator::from_string_inf))
-}
-
-#[cfg(feature = "serde")]
-pub(crate) fn deserialize_opt_accum<'d, D>(deserializer: D) -> Result<Option<Accumulator>, D::Error>
-where
-    D: Deserializer<'d>,
-{
-    #[derive(Debug, Deserialize)]
-    struct WrapAccumulator {
-        #[serde(deserialize_with = "deserialize_accum")]
-        inner: Accumulator,
-    }
-
-    Ok(Option::<WrapAccumulator>::deserialize(deserializer)?.map(|p| p.inner))
-}
+pub type Accumulator = PointG2Inf;
 
 /// `Revocation Registry` contains accumulator.
 /// Must be published by Issuer on a tamper-evident and highly available storage
@@ -426,7 +404,6 @@ where
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct RevocationRegistry {
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_accum"))]
     pub accum: Accumulator,
 }
 
@@ -453,11 +430,9 @@ pub struct RevocationRegistryDelta {
     #[cfg_attr(
         feature = "serde",
         serde(default),
-        serde(skip_serializing_if = "Option::is_none"),
-        serde(deserialize_with = "deserialize_opt_accum")
+        serde(skip_serializing_if = "Option::is_none")
     )]
     pub(crate) prev_accum: Option<Accumulator>,
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_accum"))]
     pub(crate) accum: Accumulator,
     #[cfg_attr(
         feature = "serde",
@@ -553,7 +528,7 @@ impl Tail {
         g_dash: &PointG2,
         gamma: &GroupOrderElement,
         range: RangeInclusive<u32>,
-    ) -> ClResult<Accumulator> {
+    ) -> ClResult<PointG2> {
         let (mut start, mut end) = range.into_inner();
         if start > end {
             std::mem::swap(&mut start, &mut end);
@@ -718,7 +693,7 @@ impl SignatureCorrectnessProof {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Witness {
-    pub(crate) omega: PointG2,
+    pub(crate) omega: PointG2Inf,
 }
 
 impl Witness {
@@ -747,7 +722,9 @@ impl Witness {
             })?;
         }
 
-        let witness = Witness { omega };
+        let witness = Witness {
+            omega: omega.into(),
+        };
 
         trace!("Witness::new: <<< witness: {:?}", witness);
 
@@ -771,7 +748,7 @@ impl Witness {
             rev_reg_delta
         );
 
-        let mut new_omega = self.omega.clone();
+        let mut new_omega = self.omega.0;
         for j in rev_reg_delta.revoked.iter() {
             if rev_idx.eq(j) {
                 continue;
@@ -794,7 +771,7 @@ impl Witness {
             })?;
         }
 
-        self.omega = new_omega;
+        self.omega = new_omega.into();
 
         trace!("Witness::update: <<<");
 
@@ -1417,6 +1394,6 @@ mod tests {
     #[test]
     fn deser_infinity_accum() {
         let reg: RevocationRegistry = serde_json::from_str(r#"{"accum":"1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000 1 0000000000000000000000000000000000000000000000000000000000000000"}"#).unwrap();
-        assert_eq!(reg.accum, Accumulator::new_generator().unwrap());
+        assert!(reg.accum.is_inf().unwrap());
     }
 }

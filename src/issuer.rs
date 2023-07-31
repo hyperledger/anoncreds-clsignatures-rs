@@ -775,12 +775,12 @@ impl Issuer {
     }
 
     pub(crate) fn _update_revocation_accumulator(
-        accum: PointG2,
+        accum: Accumulator,
         max_cred_num: u32,
         updates: impl IntoIterator<Item = (u32, bool)>,
         credential_pub_key: &CredentialPublicKey,
         rev_key_priv: &RevocationKeyPrivate,
-    ) -> ClResult<PointG2> {
+    ) -> ClResult<Accumulator> {
         let rev_key_pub: &CredentialRevocationPublicKey =
             credential_pub_key.r_key.as_ref().ok_or_else(|| {
                 err_msg!("No revocation part present in credential revocation public key.")
@@ -799,7 +799,7 @@ impl Issuer {
         let new_acc = if pow_acc.is_zero() {
             accum
         } else {
-            accum.add(&rev_key_pub.g_dash.mul(&pow_acc)?)?
+            accum.0.add(&rev_key_pub.g_dash.mul(&pow_acc)?)?.into()
         };
         Ok(new_acc)
     }
@@ -990,9 +990,11 @@ impl Issuer {
             let end = Issuer::_get_index(max_cred_num, max_cred_num);
             Tail::accum_range(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, start..=end)?
         } else {
-            Accumulator::new_inf()?
+            PointG2::new_inf()?
         };
-        let rev_reg = RevocationRegistry { accum };
+        let rev_reg = RevocationRegistry {
+            accum: accum.into(),
+        };
 
         trace!(
             "Issuer::_new_revocation_registry: <<< rev_reg: {:?}",
@@ -1371,7 +1373,7 @@ impl Issuer {
         let rev_reg_delta = if issuance_by_default {
             None
         } else {
-            rev_reg.accum = rev_reg.accum.add(&index_tail)?;
+            rev_reg.accum = rev_reg.accum.0.add(&index_tail)?.into();
 
             Some(RevocationRegistryDelta {
                 prev_accum: Some(prev_acc),
@@ -1394,12 +1396,14 @@ impl Issuer {
         };
 
         let witness = {
-            let mut omega = prev_acc;
+            let mut omega = prev_acc.0;
             if issuance_by_default {
                 omega = omega.sub(&index_tail)?;
             }
             omega = omega.mul(&gamma_i)?;
-            Witness { omega }
+            Witness {
+                omega: omega.into(),
+            }
         };
 
         trace!("Issuer::_new_non_revocation_credential: <<< non_revocation_cred_sig: {:?}, rev_reg_delta: {:?}",
@@ -1888,7 +1892,7 @@ pub mod mocks {
 
     pub fn witness() -> Witness {
         Witness {
-            omega: PointG2::from_string(
+            omega: PointG2Inf::from_string(
                 "1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000",
             )
             .unwrap(),
@@ -1940,7 +1944,7 @@ pub mod mocks {
     }
 
     fn accumulator() -> Accumulator {
-        PointG2::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap()
+        Accumulator::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000").unwrap()
     }
 
     pub fn revocation_registry() -> RevocationRegistry {
@@ -1956,7 +1960,7 @@ pub mod mocks {
     pub fn revocation_registry_delta() -> RevocationRegistryDelta {
         RevocationRegistryDelta {
             prev_accum: Some(
-                PointG2::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000")
+                PointG2Inf::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000")
                     .unwrap(),
             ),
             accum: accumulator(),

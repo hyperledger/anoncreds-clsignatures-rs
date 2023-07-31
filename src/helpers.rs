@@ -514,8 +514,13 @@ pub fn create_tau_list_expected_values(
         &proof_c.a.neg()?,
         &r_pub_key.y,
     )?;
-    let t4 = Pair::pair2(&proof_c.g, &rev_reg.accum, &r_pub_key.g.neg()?, &proof_c.w)?
-        .mul(&rev_acc_pub_key.z.inverse()?)?;
+    let t4 = Pair::pair2(
+        &proof_c.g,
+        &rev_reg.accum.0,
+        &r_pub_key.g.neg()?,
+        &proof_c.w,
+    )?
+    .mul(&rev_acc_pub_key.z.inverse()?)?;
     let t5 = proof_c.d;
     let t6 = PointG1::new_inf()?;
     let t7 = Pair::pair2(
@@ -580,7 +585,7 @@ pub fn create_tau_list_values(
     )?;
     let t4 = Pair::pair2(
         &r_pub_key.htilde.mul(&params.r)?,
-        &rev_reg.accum,
+        &rev_reg.accum.0,
         &r_pub_key.g.mul(&params.r_prime)?.neg()?,
         &r_pub_key.h_cap,
     )?;

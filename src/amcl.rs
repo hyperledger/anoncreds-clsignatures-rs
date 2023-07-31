@@ -80,14 +80,12 @@ pub struct PointG1 {
 }
 
 impl PointG1 {
+    // This should be MODBYTES * 2 + 1, but is maintained for compatibility
     pub const BYTES_REPR_SIZE: usize = MODBYTES * 4;
 
     /// Creates new random PointG1
     pub fn new() -> ClResult<Self> {
-        let gen_g1 = ECP::generator();
-        let point = g1mul(&gen_g1, &mut random_mod_order()?);
-
-        Ok(PointG1 { point })
+        Self::new_generator()?.mul(&GroupOrderElement::new()?)
     }
 
     /// Creates new infinity PointG1
@@ -98,7 +96,6 @@ impl PointG1 {
     }
 
     /// Create the generator point
-    #[allow(unused)]
     pub fn new_generator() -> ClResult<Self> {
         Ok(PointG1 {
             point: ECP::generator(),
@@ -108,10 +105,6 @@ impl PointG1 {
     /// Checks infinity
     pub fn is_inf(&self) -> ClResult<bool> {
         Ok(self.point.is_infinity())
-    }
-
-    pub fn to_string(&self) -> ClResult<String> {
-        Ok(self.point.to_hex())
     }
 
     /// PointG1 * PointG1
@@ -144,6 +137,11 @@ impl PointG1 {
         Ok(PointG1 {
             point: g1mul(&r, &mut bn),
         })
+    }
+
+    /// Encode to hexadecimal format
+    pub fn to_string(&self) -> ClResult<String> {
+        Ok(self.point.to_hex())
     }
 
     /// Decode from hexadecimal format
@@ -239,9 +237,7 @@ impl PointG2 {
 
     /// Creates new random PointG2
     pub fn new() -> ClResult<Self> {
-        let gen_g2 = ECP2::generator();
-        let point = g2mul(&gen_g2, &random_mod_order()?);
-        Ok(PointG2 { point })
+        Self::new_generator()?.mul(&GroupOrderElement::new()?)
     }
 
     /// Creates new infinity PointG2
@@ -261,10 +257,6 @@ impl PointG2 {
     /// Checks infinity
     pub fn is_inf(&self) -> ClResult<bool> {
         Ok(self.point.is_infinity())
-    }
-
-    pub fn to_string(&self) -> ClResult<String> {
-        Ok(self.point.to_hex())
     }
 
     /// PointG2 * PointG2
@@ -298,6 +290,11 @@ impl PointG2 {
         Ok(PointG2 {
             point: g2mul(&r, &bn),
         })
+    }
+
+    /// Encode to hexadecimal format
+    pub fn to_string(&self) -> ClResult<String> {
+        Ok(self.point.to_hex())
     }
 
     /// Decode from hexadecimal format

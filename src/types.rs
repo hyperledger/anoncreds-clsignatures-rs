@@ -515,10 +515,6 @@ impl Tail {
         g_dash.mul(&Self::index_pow(index, gamma)?)
     }
 
-    pub(crate) fn next_tail(&self, gamma: &GroupOrderElement) -> ClResult<Self> {
-        self.mul(gamma)
-    }
-
     pub(crate) fn index_pow(index: u32, gamma: &GroupOrderElement) -> ClResult<GroupOrderElement> {
         let i_bytes = helpers::transform_u32_to_array_of_u8(index);
         gamma.pow_mod(&GroupOrderElement::from_bytes(&i_bytes)?)
@@ -548,17 +544,17 @@ impl Tail {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub struct RevocationTailsGenerator {
-    pub(crate) size: u32,
-    pub(crate) current_index: u32,
-    pub(crate) g_dash: PointG2,
-    pub(crate) gamma: GroupOrderElement,
+    size: u32,
+    current_index: u32,
+    g_dash: PointG2,
+    gamma: GroupOrderElement,
     cur: Option<Tail>,
 }
 
 impl RevocationTailsGenerator {
     pub(crate) fn new(max_cred_num: u32, gamma: GroupOrderElement, g_dash: PointG2) -> Self {
         RevocationTailsGenerator {
-            size: 2 * max_cred_num + 1, /* Unused 0th + valuable 1..L + unused (L+1)th + valuable (L+2)..(2L) */
+            size: 2 * max_cred_num + 1, // Unused 0th + valuable 1..L + secret (L+1)th + valuable (L+2)..(2L-1)
             current_index: 0,
             gamma,
             g_dash,
@@ -575,7 +571,7 @@ impl RevocationTailsGenerator {
             Ok(None)
         } else {
             let mut res = if let Some(tail) = self.cur.as_ref() {
-                tail.next_tail(&self.gamma)?
+                tail.mul(&self.gamma)?
             } else {
                 self.g_dash
             };

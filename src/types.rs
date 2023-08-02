@@ -1333,6 +1333,12 @@ impl BytesView for BigNumber {
     }
 }
 
+impl BytesView for PointG1 {
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+}
+
 impl BytesView for GroupOrderElement {
     fn to_bytes(&self) -> ClResult<Vec<u8>> {
         self.to_bytes()

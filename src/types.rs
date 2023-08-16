@@ -548,6 +548,12 @@ impl RevocationRegistry {
     }
 }
 
+impl From<Accumulator> for RevocationRegistry {
+    fn from(accum: Accumulator) -> RevocationRegistry {
+        RevocationRegistry { accum }
+    }
+}
+
 impl From<RevocationRegistryDelta> for RevocationRegistry {
     fn from(rev_reg_delta: RevocationRegistryDelta) -> RevocationRegistry {
         RevocationRegistry {

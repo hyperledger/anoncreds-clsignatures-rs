@@ -150,7 +150,7 @@ impl Issuer {
         let (rev_key_pub, rev_key_priv) =
             Issuer::_new_revocation_registry_keys(cred_rev_pub_key, max_cred_num)?;
 
-        let rev_reg = Issuer::_new_revocation_registry(
+        let rev_reg = RevocationRegistry::_initial_state(
             cred_rev_pub_key,
             &rev_key_priv,
             max_cred_num,
@@ -799,7 +799,10 @@ impl Issuer {
         let new_acc = if pow_acc.is_zero() {
             accum
         } else {
-            accum.0.add(&rev_key_pub.g_dash.mul(&pow_acc)?)?.into()
+            accum
+                .as_ref()
+                .add(&rev_key_pub.g_dash.mul(&pow_acc)?)?
+                .into()
         };
         Ok(new_acc)
     }
@@ -974,34 +977,6 @@ impl Issuer {
         );
 
         Ok(key_correctness_proof)
-    }
-
-    fn _new_revocation_registry(
-        cred_rev_pub_key: &CredentialRevocationPublicKey,
-        rev_key_priv: &RevocationKeyPrivate,
-        max_cred_num: u32,
-        issuance_by_default: bool,
-    ) -> ClResult<RevocationRegistry> {
-        trace!("Issuer::_new_revocation_registry: >>> cred_rev_pub_key: {:?}, rev_key_priv: {:?}, max_cred_num: {:?}, issuance_by_default: {:?}",
-               cred_rev_pub_key, secret!(rev_key_priv), max_cred_num, issuance_by_default);
-
-        let accum = if issuance_by_default {
-            let start = Issuer::_get_index(max_cred_num, 1);
-            let end = Issuer::_get_index(max_cred_num, max_cred_num);
-            Tail::accum_range(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, start..=end)?
-        } else {
-            PointG2::new_inf()?
-        };
-        let rev_reg = RevocationRegistry {
-            accum: accum.into(),
-        };
-
-        trace!(
-            "Issuer::_new_revocation_registry: <<< rev_reg: {:?}",
-            rev_reg
-        );
-
-        Ok(rev_reg)
     }
 
     fn _new_revocation_registry_keys(
@@ -1367,13 +1342,13 @@ impl Issuer {
         let u_i = r_pub_key.u.mul(&gamma_i)?;
 
         let index = Issuer::_get_index(max_cred_num, rev_idx);
-        let index_tail = Tail::new_tail(index, &r_pub_key.g_dash, &rev_key_priv.gamma)?;
+        let index_tail = Tail::new(index, &r_pub_key.g_dash, &rev_key_priv.gamma)?;
         let prev_acc = rev_reg.accum;
 
         let rev_reg_delta = if issuance_by_default {
             None
         } else {
-            rev_reg.accum = rev_reg.accum.0.add(&index_tail)?.into();
+            rev_reg.accum = rev_reg.accum.as_ref().add(&index_tail.as_ref())?.into();
 
             Some(RevocationRegistryDelta {
                 prev_accum: Some(prev_acc),
@@ -1396,9 +1371,9 @@ impl Issuer {
         };
 
         let witness = {
-            let mut omega = prev_acc.0;
+            let mut omega = prev_acc.as_ref().clone();
             if issuance_by_default {
-                omega = omega.sub(&index_tail)?;
+                omega = omega.sub(&index_tail.as_ref())?;
             }
             omega = omega.mul(&gamma_i)?;
             Witness {
@@ -1960,7 +1935,7 @@ pub mod mocks {
     pub fn revocation_registry_delta() -> RevocationRegistryDelta {
         RevocationRegistryDelta {
             prev_accum: Some(
-                PointG2Inf::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000")
+                Accumulator::from_string("1 02680D6A364915CE54A5E1DA89E7F1530B9394D2756312D6D97F776B0F39CC6F 1 15DE23D8864E2703884B81CB93EC5E8EE75D59BF2A8957F1C853C7407A3AF9AC 1 06B72EAC18E9FF42298D7B9B7F220E00A944FFC1864755EBB79A70E82C370335 1 116BF610CC4368D001D9F0BE121EE8DF2C7F0BEE2F1B3FE954EAF36C13DFD06F 1 095E45DDF417D05FB10933FFC63D474548B7FFFF7888802F07FFFFFF7D07A8A8 1 0000000000000000000000000000000000000000000000000000000000000000")
                     .unwrap(),
             ),
             accum: accumulator(),

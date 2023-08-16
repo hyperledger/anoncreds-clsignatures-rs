@@ -435,6 +435,12 @@ impl GroupOrderElement {
         })
     }
 
+    pub fn new_u32(val: u32) -> ClResult<GroupOrderElement> {
+        Ok(GroupOrderElement {
+            bn: BIG::new_int(val as isize),
+        })
+    }
+
     pub fn zero() -> ClResult<GroupOrderElement> {
         Ok(GroupOrderElement { bn: BIG::new() })
     }

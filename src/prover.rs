@@ -763,7 +763,7 @@ impl Prover {
 
         let z_calc = Pair::pair2(
             &r_cred.witness_signature.g_i,
-            &rev_reg.accum.0,
+            &rev_reg.accum.as_ref(),
             &cred_rev_pub_key.g.neg()?,
             &witness.omega.0,
         )?;

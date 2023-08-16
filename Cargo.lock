@@ -10,7 +10,7 @@ checksum = "ee5cca1ddc8b9dceb55b7f1272a9d1e643d73006f350a20ab4926d24e33f0f0d"
 
 [[package]]
 name = "anoncreds-clsignatures"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "amcl",
  "glass_pumpkin",

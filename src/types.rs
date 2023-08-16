@@ -396,15 +396,156 @@ pub struct CredentialRevocationPrivateKey {
     pub(crate) sk: GroupOrderElement,
 }
 
-pub type Accumulator = PointG2Inf;
+/// Accumulator value, contained in a revocation registry and delta.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
+pub struct Accumulator(PointG2Inf);
+
+impl Accumulator {
+    pub const BYTES_REPR_SIZE: usize = PointG2Inf::BYTES_REPR_SIZE;
+
+    /// Create a new empty accumulator (represented by the infinity point).
+    pub fn new_inf() -> ClResult<Self> {
+        Ok(PointG2Inf::new_inf()?.into())
+    }
+
+    /// Check if the accumulator is the infinity point.
+    pub fn is_inf(&self) -> ClResult<bool> {
+        self.0.is_inf()
+    }
+
+    /// Decode from hexadecimal format
+    pub fn from_string(s: &str) -> ClResult<Self> {
+        PointG2Inf::from_string(s).map(Self)
+    }
+
+    /// Encode to hexadecimal format
+    pub fn to_string(&self) -> ClResult<String> {
+        self.0.to_string()
+    }
+
+    /// Encode to binary format (big-endian)
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.0 .0.to_bytes()
+    }
+
+    /// Decode from binary format (big-endian)
+    pub fn from_bytes(b: &[u8]) -> ClResult<Self> {
+        Ok(PointG2::from_bytes(b)?.into())
+    }
+}
+
+impl From<PointG2> for Accumulator {
+    fn from(value: PointG2) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<PointG2Inf> for Accumulator {
+    fn from(value: PointG2Inf) -> Self {
+        Self(value)
+    }
+}
+
+impl AsRef<PointG2> for Accumulator {
+    fn as_ref(&self) -> &PointG2 {
+        &self.0 .0
+    }
+}
 
 /// `Revocation Registry` contains accumulator.
-/// Must be published by Issuer on a tamper-evident and highly available storage
-/// Used by prover to prove that a credential hasn't revoked by the issuer
+/// Must be published by Issuer on a tamper-evident and highly available storage.
+/// Used by prover to prove that a credential hasn't revoked by the issuer.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct RevocationRegistry {
     pub accum: Accumulator,
+}
+
+impl RevocationRegistry {
+    /// Create the initial revocation registry state.
+    pub fn initial_state(
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+        max_cred_num: u32,
+        issuance_by_default: bool,
+    ) -> ClResult<Self> {
+        let cred_rev_pub_key: &CredentialRevocationPublicKey =
+            credential_pub_key.r_key.as_ref().ok_or_else(|| {
+                err_msg!("There are no revocation keys in the credential public key.")
+            })?;
+        Self::_initial_state(
+            cred_rev_pub_key,
+            rev_key_priv,
+            max_cred_num,
+            issuance_by_default,
+        )
+    }
+
+    pub(crate) fn _initial_state(
+        cred_rev_pub_key: &CredentialRevocationPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+        max_cred_num: u32,
+        issuance_by_default: bool,
+    ) -> ClResult<Self> {
+        trace!("RevocationRegistry::_initial_state: >>> cred_rev_pub_key: {:?}, rev_key_priv: {:?}, max_cred_num: {:?}, issuance_by_default: {:?}",
+               cred_rev_pub_key, secret!(rev_key_priv), max_cred_num, issuance_by_default);
+
+        let accum = if issuance_by_default {
+            Tail::accum_range(
+                &cred_rev_pub_key.g_dash,
+                &rev_key_priv.gamma,
+                1..=max_cred_num,
+            )?
+            .into()
+        } else {
+            Accumulator::new_inf()?
+        };
+        let rev_reg = Self {
+            accum: accum.into(),
+        };
+
+        trace!(
+            "RevocationRegistry::_initial_state: <<< rev_reg: {:?}",
+            rev_reg
+        );
+
+        Ok(rev_reg)
+    }
+
+    /// Create the revocation registry for a set of issued credential indexes.
+    pub fn for_issued(
+        credential_pub_key: &CredentialPublicKey,
+        rev_key_priv: &RevocationKeyPrivate,
+        max_cred_num: u32,
+        issued: &BTreeSet<u32>,
+    ) -> ClResult<Self> {
+        trace!("RevocationRegistry::for_issued: >>> credential_pub_key: {:?}, rev_key_priv: {:?}, max_cred_num: {:?}, issued: {:?}",
+        credential_pub_key, secret!(rev_key_priv), max_cred_num, issued);
+
+        let cred_rev_pub_key: &CredentialRevocationPublicKey =
+            credential_pub_key.r_key.as_ref().ok_or_else(|| {
+                err_msg!("There are no revocation keys in the credential public key.")
+            })?;
+        if let Some(first) = issued.iter().next().copied() {
+            if first == 0 {
+                return Err(err_msg!("Invalid revocation index, 0."));
+            }
+        }
+        if let Some(last) = issued.iter().last().copied() {
+            if last > max_cred_num {
+                return Err(err_msg!("Invalid revocation index, exceeds max_cred_num."));
+            }
+        }
+
+        let rev_reg = Self {
+            accum: Tail::accum_indexes(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, &issued)?
+                .into(),
+        };
+
+        trace!("RevocationRegistry::for_issued: <<< rev_reg: {:?}", rev_reg);
+        Ok(rev_reg)
+    }
 }
 
 impl From<RevocationRegistryDelta> for RevocationRegistry {
@@ -503,28 +644,61 @@ pub struct RevocationKeyPrivate {
     pub(crate) gamma: GroupOrderElement,
 }
 
-/// `Tail` point of curve used to update accumulator.
-pub type Tail = PointG2;
+/// `Tail` point of curve used to update an accumulator.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
+pub struct Tail(PointG2);
 
 impl Tail {
-    pub(crate) fn new_tail(
-        index: u32,
-        g_dash: &PointG2,
-        gamma: &GroupOrderElement,
-    ) -> ClResult<Self> {
-        g_dash.mul(&Self::index_pow(index, gamma)?)
+    pub const BYTES_REPR_SIZE: usize = PointG2::BYTES_REPR_SIZE;
+
+    /// Decode from hexadecimal format
+    pub fn from_string(s: &str) -> ClResult<Self> {
+        PointG2::from_string(s).map(Self)
+    }
+
+    /// Encode to hexadecimal format
+    pub fn to_string(&self) -> ClResult<String> {
+        self.0.to_string()
+    }
+
+    /// Encode to binary format (big-endian)
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.0.to_bytes()
+    }
+
+    /// Decode from binary format (big-endian)
+    pub fn from_bytes(b: &[u8]) -> ClResult<Self> {
+        PointG2::from_bytes(b).map(Self)
+    }
+}
+
+impl From<PointG2> for Tail {
+    fn from(value: PointG2) -> Self {
+        Self(value.into())
+    }
+}
+
+impl AsRef<PointG2> for Tail {
+    fn as_ref(&self) -> &PointG2 {
+        &self.0
+    }
+}
+
+impl Tail {
+    pub(crate) fn new(index: u32, g_dash: &PointG2, gamma: &GroupOrderElement) -> ClResult<Self> {
+        g_dash.mul(&Self::index_pow(index, gamma)?).map(Self)
     }
 
     pub(crate) fn index_pow(index: u32, gamma: &GroupOrderElement) -> ClResult<GroupOrderElement> {
-        let i_bytes = helpers::transform_u32_to_array_of_u8(index);
-        gamma.pow_mod(&GroupOrderElement::from_bytes(&i_bytes)?)
+        gamma.pow_mod(&GroupOrderElement::new_u32(index)?)
     }
 
     pub(crate) fn accum_range(
         g_dash: &PointG2,
         gamma: &GroupOrderElement,
         range: RangeInclusive<u32>,
-    ) -> ClResult<PointG2> {
+    ) -> ClResult<Accumulator> {
         let (mut start, mut end) = range.into_inner();
         if start > end {
             std::mem::swap(&mut start, &mut end);
@@ -536,7 +710,32 @@ impl Tail {
             acc = acc.add_mod(&pow)?;
             start += 1;
         }
-        g_dash.mul(&acc)
+        Ok(g_dash.mul(&acc)?.into())
+    }
+
+    pub(crate) fn accum_indexes(
+        g_dash: &PointG2,
+        gamma: &GroupOrderElement,
+        indexes: &BTreeSet<u32>,
+    ) -> ClResult<Accumulator> {
+        let mut acc = GroupOrderElement::zero()?;
+        let mut base = *gamma;
+        let mut pow = 1;
+        for idx in indexes.iter().copied() {
+            if idx == 0 {
+                continue; // skip invalid index
+            } else if idx != pow {
+                let diff = idx - pow;
+                if diff == 1 {
+                    base = base.mul_mod(&gamma)?;
+                } else {
+                    base = base.mul_mod(&Self::index_pow(diff, gamma)?)?;
+                }
+                pow = idx;
+            }
+            acc = acc.add_mod(&base)?;
+        }
+        Ok(g_dash.mul(&acc)?.into())
     }
 }
 
@@ -548,7 +747,7 @@ pub struct RevocationTailsGenerator {
     current_index: u32,
     g_dash: PointG2,
     gamma: GroupOrderElement,
-    cur: Option<Tail>,
+    cur: Option<PointG2>,
 }
 
 impl RevocationTailsGenerator {
@@ -570,8 +769,8 @@ impl RevocationTailsGenerator {
         if self.current_index >= self.size {
             Ok(None)
         } else {
-            let mut res = if let Some(tail) = self.cur.as_ref() {
-                tail.mul(&self.gamma)?
+            let mut res = if let Some(cur) = self.cur.as_ref() {
+                cur.mul(&self.gamma)?
             } else {
                 self.g_dash
             };
@@ -581,7 +780,7 @@ impl RevocationTailsGenerator {
                 res = self.g_dash;
             }
             self.current_index += 1;
-            Ok(Some(res))
+            Ok(Some(Tail(res)))
         }
     }
 }
@@ -711,10 +910,10 @@ impl Witness {
         let mut issued = Self::issued_indices(max_cred_num, issuance_by_default, rev_reg_delta);
         issued.remove(&rev_idx);
 
-        for j in issued {
+        for j in issued.into_iter().rev() {
             let index = max_cred_num + 1 - j + rev_idx;
             rev_tails_accessor.access_tail(index, &mut |tail| {
-                omega = omega.add(tail).unwrap();
+                omega = omega.add(&tail.0).unwrap();
             })?;
         }
 
@@ -744,26 +943,27 @@ impl Witness {
             rev_reg_delta
         );
 
-        let mut new_omega = self.omega.0;
+        let mut indexes = BTreeMap::new();
+        for j in rev_reg_delta.issued.iter() {
+            indexes.insert(*j, true);
+        }
         for j in rev_reg_delta.revoked.iter() {
-            if rev_idx.eq(j) {
-                continue;
-            }
-
-            let index = max_cred_num + 1 - j + rev_idx;
-            rev_tails_accessor.access_tail(index, &mut |tail| {
-                new_omega = new_omega.sub(tail).unwrap();
-            })?;
+            indexes.insert(*j, false);
         }
 
-        for j in rev_reg_delta.issued.iter() {
-            if rev_idx.eq(j) {
+        let mut new_omega = self.omega.0;
+        for (j, add) in indexes.into_iter().rev() {
+            if rev_idx == j {
                 continue;
             }
-
             let index = max_cred_num + 1 - j + rev_idx;
             rev_tails_accessor.access_tail(index, &mut |tail| {
-                new_omega = new_omega.add(tail).unwrap();
+                new_omega = if add {
+                    new_omega.add(&tail.0)
+                } else {
+                    new_omega.sub(&tail.0)
+                }
+                .unwrap()
             })?;
         }
 
@@ -1383,13 +1583,34 @@ mod tests {
             }
             for idx in r.0..=r.1 {
                 acc1 = acc1
-                    .add(&Tail::new_tail(idx, &g_dash, &gamma).unwrap())
+                    .add(&Tail::new(idx, &g_dash, &gamma).unwrap().0)
                     .unwrap();
             }
 
             let acc2 = Tail::accum_range(&g_dash, &gamma, range.clone()).unwrap();
-            assert_eq!(acc1, acc2, "Invalid accum for range {:?}", range);
+            assert_eq!(
+                Accumulator::from(acc1),
+                acc2,
+                "Invalid accum for range {:?}",
+                range
+            );
         }
+    }
+
+    #[test]
+    fn tail_accum_indexes() {
+        let g_dash = PointG2::new().unwrap();
+        let gamma = GroupOrderElement::new().unwrap();
+        let indexes = [1, 2, 3, 5, 6];
+        let index_set = BTreeSet::from_iter(indexes.iter().copied());
+        let mut acc1 = PointG2::new_inf().unwrap();
+        for idx in indexes {
+            acc1 = acc1
+                .add(&Tail::new(idx, &g_dash, &gamma).unwrap().0)
+                .unwrap();
+        }
+        let acc2 = Tail::accum_indexes(&g_dash, &gamma, &index_set).unwrap();
+        assert_eq!(Accumulator::from(acc1), acc2);
     }
 
     #[cfg(feature = "serde")]

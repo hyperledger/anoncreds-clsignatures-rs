@@ -1893,7 +1893,7 @@ mod tests {
         let ms = Prover::new_link_secret().unwrap();
         assert_eq!(
             ms.ms.to_dec().unwrap(),
-            mocks::master_secret().ms.to_dec().unwrap()
+            mocks::link_secret().ms.to_dec().unwrap()
         );
     }
 
@@ -2510,7 +2510,7 @@ pub mod mocks {
 
     pub const PROVER_DID: &str = "CnEDk9HrMnmiHXEV1WFgbVCRteYnPqsJwrTdcZaNhFVW";
 
-    pub fn master_secret() -> LinkSecret {
+    pub fn link_secret() -> LinkSecret {
         LinkSecret {
             ms: BigNumber::from_dec(
                 "21578029250517794450984707538122537192839006240802068037273983354680998203845",

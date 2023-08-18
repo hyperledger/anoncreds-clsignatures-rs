@@ -27,7 +27,7 @@ pub struct BigNumber {
 
 impl BigNumber {
     pub fn new_context() -> ClResult<BigNumberContext> {
-        let ctx = BigNumContext::new()?;
+        let ctx = BigNumContext::new_secure()?;
         Ok(BigNumberContext {
             openssl_bn_context: ctx,
         })

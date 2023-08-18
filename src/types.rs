@@ -1024,6 +1024,24 @@ impl LinkSecret {
     }
 }
 
+impl AsRef<BigNumber> for LinkSecret {
+    fn as_ref(&self) -> &BigNumber {
+        &self.ms
+    }
+}
+
+impl From<BigNumber> for LinkSecret {
+    fn from(ms: BigNumber) -> Self {
+        Self { ms }
+    }
+}
+
+impl From<LinkSecret> for BigNumber {
+    fn from(sec: LinkSecret) -> Self {
+        sec.ms
+    }
+}
+
 /// Blinded Master Secret uses by Issuer in credential creation.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]

@@ -682,6 +682,16 @@ impl Prover {
         }) {
             return Err(err_msg!("Value by key '{}' not found in public key", attr));
         }
+        if let Some((ref attr, _)) = p_pub_key
+            .r
+            .iter()
+            .find(|(attr, _)| !cred_values.attrs_values.contains_key(attr.as_str()))
+        {
+            return Err(err_msg!(
+                "Credential attribute '{}' value not provided",
+                attr
+            ));
+        }
 
         let rx = cred_values
             .attrs_values

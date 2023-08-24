@@ -1133,6 +1133,18 @@ impl Issuer {
         trace!("Issuer::_new_primary_credential: >>> credential_context: {:?}, cred_pub_key: {:?}, cred_priv_key: {:?}, blinded_ms: {:?},\
          cred_values: {:?}", secret!(credential_context), cred_pub_key, secret!(cred_priv_key), blinded_credential_secrets, secret!(cred_values));
 
+        if let Some((ref attr, _)) = cred_pub_key
+            .p_key
+            .r
+            .iter()
+            .find(|(attr, _)| !cred_values.attrs_values.contains_key(attr.as_str()))
+        {
+            return Err(err_msg!(
+                "Credential attribute '{}' value not provided",
+                attr
+            ));
+        }
+
         let v = generate_v_prime_prime()?;
 
         let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE)?;
@@ -1215,7 +1227,7 @@ impl Issuer {
             let pk_r = p_pub_key
                 .r
                 .get(key)
-                .ok_or_else(|| err_msg!("Value by key '{}' not found in pk.r", key))?;
+                .ok_or_else(|| err_msg!("Value by key '{}' not found in public key", key))?;
 
             rx = pk_r
                 .mod_exp(attr.value(), &p_pub_key.n, Some(&mut context))?
@@ -1580,6 +1592,36 @@ mod tests {
             expected_signature_correctness_proof,
             signature_correctness_proof
         );
+    }
+
+    #[test]
+    fn sign_credential_missing_attribute() {
+        MockHelper::inject();
+
+        let (pub_key, priv_key) = (
+            mocks::credential_public_key(),
+            mocks::credential_private_key(),
+        );
+        let blinded_credential_secrets_nonce = mocks::credential_nonce();
+        let (blinded_credential_secrets, blinded_credential_secrets_correctness_proof) = (
+            prover_mocks::blinded_credential_secrets(),
+            prover_mocks::blinded_credential_secrets_correctness_proof(),
+        );
+        let mut cred_values = mocks::credential_values();
+        cred_values.attrs_values.pop_first();
+
+        let credential_issuance_nonce = mocks::credential_issuance_nonce();
+        assert!(Issuer::sign_credential(
+            prover_mocks::PROVER_DID,
+            &blinded_credential_secrets,
+            &blinded_credential_secrets_correctness_proof,
+            &blinded_credential_secrets_nonce,
+            &credential_issuance_nonce,
+            &cred_values,
+            &pub_key,
+            &priv_key,
+        )
+        .is_err());
     }
 
     #[test]

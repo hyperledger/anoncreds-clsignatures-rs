@@ -1608,7 +1608,7 @@ mod tests {
             prover_mocks::blinded_credential_secrets_correctness_proof(),
         );
         let mut cred_values = mocks::credential_values();
-        cred_values.attrs_values.pop_first();
+        cred_values.attrs_values.remove("age");
 
         let credential_issuance_nonce = mocks::credential_issuance_nonce();
         assert!(Issuer::sign_credential(

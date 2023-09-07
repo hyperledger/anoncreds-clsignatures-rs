@@ -1912,7 +1912,7 @@ mod tests {
         MockHelper::inject();
 
         let pk = issuer::mocks::credential_primary_public_key();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
 
         let _blinded_primary_credential_secrets =
             Prover::_generate_blinded_primary_credential_secrets_factors(&pk, &credential_values)
@@ -1941,7 +1941,7 @@ mod tests {
 
         let pk = issuer::mocks::credential_public_key();
         let key_correctness_proof = issuer::mocks::credential_key_correctness_proof();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
         let nonce = issuer::mocks::credential_nonce();
 
         let (
@@ -1994,7 +1994,7 @@ mod tests {
         MockHelper::inject();
 
         let mut credential_signature = issuer::mocks::credential();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
         let pk = issuer::mocks::credential_public_key();
         let credential_secrets_blinding_factors = mocks::credential_secrets_blinding_factors();
         let signature_correctness_proof = issuer::mocks::signature_correctness_proof();
@@ -2052,7 +2052,7 @@ mod tests {
         let pk = issuer::mocks::credential_primary_public_key();
         let init_eq_proof = mocks::primary_equal_init_proof();
         let predicate = mocks::predicate();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
 
         let init_ne_proof = ProofBuilder::_init_ne_proof(
             &pk,
@@ -2073,7 +2073,7 @@ mod tests {
         let credential_schema = issuer::mocks::credential_schema();
         let non_credential_schema = issuer::mocks::non_credential_schema();
         let credential = mocks::credential();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
         let sub_proof_request = mocks::sub_proof_request();
         let common_attributes = mocks::proof_common_attributes();
         let m2_tilde = mocks::primary_init_proof_m2tilde();
@@ -2098,7 +2098,7 @@ mod tests {
 
         let c_h = mocks::aggregated_proof().c_hash;
         let init_proof = mocks::primary_equal_init_proof();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
         let non_credential_schema = issuer::mocks::non_credential_schema();
         let credential_schema = issuer::mocks::credential_schema();
         let sub_proof_request = mocks::sub_proof_request();
@@ -2136,7 +2136,7 @@ mod tests {
         let c_h = mocks::aggregated_proof().c_hash;
         let credential_schema = issuer::mocks::credential_schema();
         let non_credential_schema = issuer::mocks::non_credential_schema();
-        let credential_values = issuer::mocks::credential_values();
+        let credential_values = mocks::proof_credential_values();
         let sub_proof_request = mocks::sub_proof_request();
 
         let proof = ProofBuilder::_finalize_primary_proof(
@@ -2210,7 +2210,7 @@ mod tests {
             Instant::now() - start_time
         );
 
-        let cred_values = issuer::mocks::credential_values();
+        let cred_values = mocks::proof_credential_values();
 
         // Issue first correct Claim
         let credential_nonce = new_nonce().unwrap();
@@ -2323,7 +2323,7 @@ mod tests {
             )
             .expect("Error creating revocation registry");
 
-        let cred_values = issuer::mocks::credential_values();
+        let cred_values = mocks::proof_credential_values();
         let credential_nonce = new_nonce().unwrap();
 
         let (
@@ -2475,7 +2475,7 @@ mod tests {
         let credential_schema = issuer::mocks::credential_schema();
         let non_credential_schema = issuer::mocks::non_credential_schema();
         let cred_signature = mocks::credential();
-        let cred_values = issuer::mocks::credential_values();
+        let cred_values = mocks::proof_credential_values();
         let cred_pub_key = issuer::mocks::credential_public_key();
         let rev_reg = issuer::mocks::revocation_registry();
         let witness = issuer::mocks::witness();
@@ -2531,6 +2531,18 @@ pub mod mocks {
 
     pub fn proof_common_attributes() -> HashMap<String, BigNumber> {
         hashmap!["master_secret".to_string() => BigNumber::from_dec("67940925789970108743024738273926421512152745397724199848594503731042154269417576665420030681245389493783225644817826683796657351721363490290016166310023506339911751676800452438014771736117676826911321621579680668201191205819012441197794443970687648330757835198888257781967404396196813475280544039772512800509").unwrap()]
+    }
+
+    pub fn proof_credential_values() -> CredentialValues {
+        CredentialValues {
+            attrs_values: btreemap![
+                "age".to_string() => CredentialValue::Known { value: BigNumber::from_u32(25).unwrap() },
+                "height".to_string() => CredentialValue::Known { value: BigNumber::from_u32(175).unwrap() },
+                "master_secret".to_string() => CredentialValue::Hidden { value: link_secret().value().unwrap() },
+                "name".to_string() => CredentialValue::Known { value: BigNumber::from_dec("66682250590915135919393234675423675079281389286836524491448775067034910960723").unwrap() },
+                "sex".to_string() => CredentialValue::Known { value: BigNumber::from_dec("59607158875075502079861259255950808097316057515161310607657216396491477298979").unwrap() }
+            ],
+        }
     }
 
     pub fn blinded_credential_secrets() -> BlindedCredentialSecrets {

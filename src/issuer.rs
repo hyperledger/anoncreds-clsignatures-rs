@@ -236,13 +236,16 @@ impl Issuer {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
+    ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
-    ///      Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &credential_values, &credential_nonce).unwrap();
+    ///      Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -367,14 +370,16 @@ impl Issuer {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("name", "1139481716457488690172217916278103335").unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, _credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &cred_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -505,14 +510,16 @@ impl Issuer {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("name", "1139481716457488690172217916278103335").unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref()).unwrap();
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, _credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &cred_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
     /// let rev_idx = 1;
@@ -601,14 +608,16 @@ impl Issuer {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("name", "1139481716457488690172217916278103335").unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, _credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &cred_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -701,14 +710,16 @@ impl Issuer {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("name", "1139481716457488690172217916278103335").unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, _credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &cred_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&cred_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
     /// let rev_idx = 1;
@@ -1141,6 +1152,17 @@ impl Issuer {
         }) {
             return Err(err_msg!(
                 "Credential attribute '{}' value not provided",
+                attr
+            ));
+        }
+
+        if let Some(attr) = blinded_credential_secrets
+            .hidden_attributes
+            .iter()
+            .find(|attr| cred_values.attrs_values.contains_key(attr.as_str()))
+        {
+            return Err(err_msg!(
+                "Blinded credential secret '{}' also contained in credential attributes",
                 attr
             ));
         }
@@ -1652,10 +1674,7 @@ mod tests {
 
         let mut credential_values_builder = CredentialValuesBuilder::new().unwrap();
         credential_values_builder
-            .add_value_hidden(
-                "master_secret",
-                &prover_mocks::link_secret().value().unwrap(),
-            )
+            .add_value_hidden("master_secret", prover_mocks::link_secret().as_ref())
             .unwrap();
         credential_values_builder
             .add_value_known(

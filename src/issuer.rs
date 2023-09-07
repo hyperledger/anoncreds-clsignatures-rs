@@ -1133,12 +1133,12 @@ impl Issuer {
         trace!("Issuer::_new_primary_credential: >>> credential_context: {:?}, cred_pub_key: {:?}, cred_priv_key: {:?}, blinded_ms: {:?},\
          cred_values: {:?}", secret!(credential_context), cred_pub_key, secret!(cred_priv_key), blinded_credential_secrets, secret!(cred_values));
 
-        if let Some((ref attr, _)) = cred_pub_key
-            .p_key
-            .r
-            .iter()
-            .find(|(attr, _)| !cred_values.attrs_values.contains_key(attr.as_str()))
-        {
+        if let Some((attr, _)) = cred_pub_key.p_key.r.iter().find(|(attr, _)| {
+            !cred_values.attrs_values.contains_key(attr.as_str())
+                && !blinded_credential_secrets
+                    .hidden_attributes
+                    .contains(attr.as_str())
+        }) {
             return Err(err_msg!(
                 "Credential attribute '{}' value not provided",
                 attr
@@ -1857,7 +1857,6 @@ pub mod mocks {
             attrs_values: btreemap![
                 "age".to_string() => CredentialValue::Known { value: BigNumber::from_u32(25).unwrap() },
                 "height".to_string() => CredentialValue::Known { value: BigNumber::from_u32(175).unwrap() },
-                "master_secret".to_string() => CredentialValue::Hidden { value: prover_mocks::link_secret().value().unwrap() },
                 "name".to_string() => CredentialValue::Known { value: BigNumber::from_dec("66682250590915135919393234675423675079281389286836524491448775067034910960723").unwrap() },
                 "sex".to_string() => CredentialValue::Known { value: BigNumber::from_dec("59607158875075502079861259255950808097316057515161310607657216396491477298979").unwrap() }
             ],

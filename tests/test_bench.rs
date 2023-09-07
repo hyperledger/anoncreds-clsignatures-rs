@@ -31,7 +31,7 @@ mod cl_bench_tests {
     fn get_credential_values(master_secret: &MasterSecret) -> CredentialValues {
         let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
         credential_values_builder
-            .add_value_hidden("master_secret", &link_secret.value().unwrap())
+            .add_value_hidden("master_secret", link_secret.as_ref())
             .unwrap();
         credential_values_builder
             .add_dec_known("name", "1139481716457488690172217916278103335")

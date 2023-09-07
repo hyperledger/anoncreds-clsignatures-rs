@@ -144,9 +144,6 @@ mod tests {
 
         let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
         credential_values_builder
-            .add_value_hidden("master_secret", &link_secret.value().unwrap())
-            .unwrap();
-        credential_values_builder
             .add_dec_known("funds_sold_and_securities_purchased", "50")
             .unwrap();
         credential_values_builder
@@ -182,6 +179,11 @@ mod tests {
             .unwrap();
         let cred_values = credential_values_builder.finalize().unwrap();
 
+        let mut blind_credential_values_builder = CredentialValuesBuilder::new().unwrap();
+        blind_credential_values_builder
+            .add_value_hidden("master_secret", link_secret.as_ref())
+            .unwrap();
+        let blind_cred_values = blind_credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -189,7 +191,7 @@ mod tests {
         ) = Prover::blind_credential_secrets(
             &cred_pub_key,
             &cred_key_correctness_proof,
-            &cred_values,
+            &blind_cred_values,
             &credential_nonce,
         )
         .unwrap();
@@ -208,9 +210,10 @@ mod tests {
         )
         .unwrap();
 
+        let prover_cred_values = cred_values.merge(&blind_cred_values).unwrap();
         Prover::process_credential_signature(
             &mut cred_signature,
-            &cred_values,
+            &prover_cred_values,
             &signature_correctness_proof,
             &credential_secrets_blinding_factors,
             &cred_pub_key,
@@ -270,7 +273,7 @@ mod tests {
                 &credential_schema,
                 &non_credential_schema,
                 &cred_signature,
-                &cred_values,
+                &prover_cred_values,
                 &cred_pub_key,
                 None,
                 None,
@@ -390,9 +393,6 @@ mod tests {
 
         let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
         credential_values_builder
-            .add_value_hidden("master_secret", &link_secret.value().unwrap())
-            .unwrap();
-        credential_values_builder
             .add_dec_known("name", "1139481716457488690172217916278103335")
             .unwrap();
         credential_values_builder
@@ -409,6 +409,11 @@ mod tests {
             .unwrap();
         let cred_values = credential_values_builder.finalize().unwrap();
 
+        let mut blind_credential_values_builder = CredentialValuesBuilder::new().unwrap();
+        blind_credential_values_builder
+            .add_value_hidden("master_secret", link_secret.as_ref())
+            .unwrap();
+        let blind_cred_values = blind_credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -416,7 +421,7 @@ mod tests {
         ) = Prover::blind_credential_secrets(
             &cred_pub_key,
             &cred_key_correctness_proof,
-            &cred_values,
+            &blind_cred_values,
             &credential_nonce,
         )
         .unwrap();
@@ -435,9 +440,10 @@ mod tests {
         )
         .unwrap();
 
+        let prover_cred_values = cred_values.merge(&blind_cred_values).unwrap();
         Prover::process_credential_signature(
             &mut cred_signature,
-            &cred_values,
+            &prover_cred_values,
             &signature_correctness_proof,
             &credential_secrets_blinding_factors,
             &cred_pub_key,
@@ -462,7 +468,7 @@ mod tests {
                 &credential_schema,
                 &non_credential_schema,
                 &cred_signature,
-                &cred_values,
+                &prover_cred_values,
                 &cred_pub_key,
                 None,
                 None,
@@ -516,9 +522,6 @@ mod tests {
 
         let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
         credential_values_builder
-            .add_value_hidden("master_secret", &link_secret.value().unwrap())
-            .unwrap();
-        credential_values_builder
             .add_dec_known("name", "1139481716457488690172217916278103335")
             .unwrap();
         credential_values_builder
@@ -535,6 +538,11 @@ mod tests {
             .unwrap();
         let cred_values = credential_values_builder.finalize().unwrap();
 
+        let mut blind_credential_values_builder = CredentialValuesBuilder::new().unwrap();
+        blind_credential_values_builder
+            .add_value_hidden("master_secret", link_secret.as_ref())
+            .unwrap();
+        let blind_cred_values = blind_credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -542,7 +550,7 @@ mod tests {
         ) = Prover::blind_credential_secrets(
             &cred_pub_key,
             &cred_key_correctness_proof,
-            &cred_values,
+            &blind_cred_values,
             &credential_nonce,
         )
         .unwrap();
@@ -568,9 +576,10 @@ mod tests {
             )
             .unwrap();
 
+        let prover_cred_values = cred_values.merge(&blind_cred_values).unwrap();
         Prover::process_credential_signature(
             &mut cred_signature,
-            &cred_values,
+            &prover_cred_values,
             &signature_correctness_proof,
             &credential_secrets_blinding_factors,
             &cred_pub_key,
@@ -595,7 +604,7 @@ mod tests {
                 &credential_schema,
                 &non_credential_schema,
                 &cred_signature,
-                &cred_values,
+                &prover_cred_values,
                 &cred_pub_key,
                 Some(&rev_reg),
                 Some(&witness),
@@ -682,9 +691,6 @@ mod openssl_tests {
             // 6. Issuer creates GVT credential values
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
             credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
-            credential_values_builder
                 .add_dec_known("name", "1139481716457488690172217916278103335")
                 .unwrap();
             credential_values_builder
@@ -702,6 +708,11 @@ mod openssl_tests {
             let gvt_credential_values = credential_values_builder.finalize().unwrap();
 
             // 7. Prover blinds hidden attributes
+            let mut blind_credential_values_builder = CredentialValuesBuilder::new().unwrap();
+            blind_credential_values_builder
+                .add_value_hidden("master_secret", link_secret.as_ref())
+                .unwrap();
+            let gvt_blind_credential_values = blind_credential_values_builder.finalize().unwrap();
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -709,7 +720,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -742,9 +753,12 @@ mod openssl_tests {
             .unwrap();
 
             // 10. Prover processes GVT credential signature
+            let gvt_prover_cred_values = gvt_credential_values
+                .merge(&gvt_blind_credential_values)
+                .unwrap();
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_prover_cred_values,
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -787,9 +801,6 @@ mod openssl_tests {
             // 15. Issuer creates XYZ credential values
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
             credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
-            credential_values_builder
                 .add_dec_known("status", "51792877103171595686471452153480627530895")
                 .unwrap();
             credential_values_builder
@@ -798,6 +809,11 @@ mod openssl_tests {
             let xyz_credential_values = credential_values_builder.finalize().unwrap();
 
             // 16. Prover blinds hidden attributes
+            let mut blind_credential_values_builder = CredentialValuesBuilder::new().unwrap();
+            blind_credential_values_builder
+                .add_value_hidden("master_secret", link_secret.as_ref())
+                .unwrap();
+            let xyz_blind_credential_values = blind_credential_values_builder.finalize().unwrap();
             let (
                 xyz_blinded_credential_secrets,
                 xyz_credential_secrets_blinding_factors,
@@ -805,7 +821,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &xyz_credential_pub_key,
                 &xyz_credential_key_correctness_proof,
-                &xyz_credential_values,
+                &xyz_blind_credential_values,
                 &xyz_credential_nonce,
             )
             .unwrap();
@@ -839,9 +855,12 @@ mod openssl_tests {
             assert!(xyz_rev_reg_delta.is_none());
 
             // 19. Prover processes XYZ credential signature
+            let xyz_prover_cred_values = xyz_credential_values
+                .merge(&xyz_blind_credential_values)
+                .unwrap();
             Prover::process_credential_signature(
                 &mut xyz_credential_signature,
-                &xyz_credential_values,
+                &xyz_prover_cred_values,
                 &xyz_signature_correctness_proof,
                 &xyz_credential_secrets_blinding_factors,
                 &xyz_credential_pub_key,
@@ -883,7 +902,7 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_prover_cred_values,
                     &gvt_credential_pub_key,
                     Some(&gvt_rev_reg),
                     Some(&gvt_witness),
@@ -896,7 +915,7 @@ mod openssl_tests {
                     &xyz_credential_schema,
                     &non_credential_schema,
                     &xyz_credential_signature,
-                    &xyz_credential_values,
+                    &xyz_prover_cred_values,
                     &xyz_credential_pub_key,
                     Some(&xyz_rev_reg),
                     Some(&xyz_witness),
@@ -953,6 +972,7 @@ mod openssl_tests {
                 .unwrap();
             let cred_values = credential_values_builder.finalize().unwrap();
 
+            let blind_cred_values = CredentialValues::default();
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -960,7 +980,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &cred_pub_key,
                 &cred_key_correctness_proof,
-                &cred_values,
+                &blind_cred_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -1043,13 +1063,14 @@ mod openssl_tests {
                     .unwrap();
 
             // 3. Issuer creates credential values
-            let credential_values =
-                helpers::gvt_credential_values(&Prover::new_link_secret().unwrap());
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds hidden attributes
+            let link_secret = Prover::new_link_secret().unwrap();
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -1057,7 +1078,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -1081,7 +1102,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -1107,7 +1128,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     None,
                     None,
@@ -1155,13 +1176,14 @@ mod openssl_tests {
                 .unwrap();
 
             // 4. Issuer creates and sign credential values
-            let credential_values =
-                helpers::gvt_credential_values(&Prover::new_link_secret().unwrap());
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds hidden attributes
+            let link_secret = Prover::new_link_secret().unwrap();
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -1169,7 +1191,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -1199,7 +1221,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -1225,7 +1247,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -1273,13 +1295,14 @@ mod openssl_tests {
                 .unwrap();
 
             // 4. Prover creates master secret with credential values
-            let credential_values =
-                helpers::gvt_credential_values(&Prover::new_link_secret().unwrap());
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let link_secret = Prover::new_link_secret().unwrap();
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -1287,7 +1310,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -1320,7 +1343,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -1346,7 +1369,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -1888,7 +1911,7 @@ mod openssl_tests {
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
 
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
+            let gvt_credential_values = helpers::gvt_credential_values();
 
             // 2. Issuer creates and signs GVT credential for Prover
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -1902,6 +1925,7 @@ mod openssl_tests {
 
             let gvt_credential_nonce = new_nonce().unwrap();
 
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -1909,7 +1933,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -1932,7 +1956,9 @@ mod openssl_tests {
             // 3. Prover processes GVT credential
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_credential_values
+                    .merge(&gvt_blind_credential_values)
+                    .unwrap(),
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -1953,8 +1979,9 @@ mod openssl_tests {
                 .unwrap();
 
             let xyz_credential_nonce = new_nonce().unwrap();
-            let xyz_credential_values = helpers::xyz_credential_values(&link_secret);
+            let xyz_credential_values = helpers::xyz_credential_values();
 
+            let xyz_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 xyz_blinded_credential_secrets,
                 xyz_credential_secrets_blinding_factors,
@@ -1962,7 +1989,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &xyz_credential_pub_key,
                 &xyz_credential_key_correctness_proof,
-                &xyz_credential_values,
+                &xyz_blind_credential_values,
                 &xyz_credential_nonce,
             )
             .unwrap();
@@ -1985,7 +2012,9 @@ mod openssl_tests {
             // 5. Prover processes XYZ credential
             Prover::process_credential_signature(
                 &mut xyz_credential_signature,
-                &xyz_credential_values,
+                &xyz_credential_values
+                    .merge(&xyz_blind_credential_values)
+                    .unwrap(),
                 &xyz_signature_correctness_proof,
                 &xyz_credential_secrets_blinding_factors,
                 &xyz_credential_pub_key,
@@ -2013,7 +2042,9 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_credential_values
+                        .merge(&gvt_blind_credential_values)
+                        .unwrap(),
                     &gvt_credential_pub_key,
                     None,
                     None,
@@ -2027,7 +2058,9 @@ mod openssl_tests {
                     &xyz_credential_schema,
                     &non_credential_schema,
                     &xyz_credential_signature,
-                    &xyz_credential_values,
+                    &xyz_credential_values
+                        .merge(&xyz_blind_credential_values)
+                        .unwrap(),
                     &xyz_credential_pub_key,
                     None,
                     None,
@@ -2070,7 +2103,7 @@ mod openssl_tests {
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
 
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
+            let gvt_credential_values = helpers::gvt_credential_values();
 
             // 2. Issuer creates and signs GVT credential for Prover
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -2084,6 +2117,7 @@ mod openssl_tests {
 
             let gvt_credential_nonce = new_nonce().unwrap();
 
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -2091,7 +2125,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -2114,7 +2148,9 @@ mod openssl_tests {
             // 3. Prover processes GVT credential
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_credential_values
+                    .merge(&gvt_blind_credential_values)
+                    .unwrap(),
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -2138,8 +2174,9 @@ mod openssl_tests {
             let link_secret_1 = Prover::new_link_secret().unwrap();
 
             let pqr_credential_nonce = new_nonce().unwrap();
-            let pqr_credential_values = helpers::pqr_credential_values(&link_secret_1);
+            let pqr_credential_values = helpers::pqr_credential_values();
 
+            let pqr_blind_credential_values = helpers::blind_credential_values(&link_secret_1);
             let (
                 pqr_blinded_credential_secrets,
                 pqr_credential_secrets_blinding_factors,
@@ -2147,7 +2184,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &pqr_credential_pub_key,
                 &pqr_credential_key_correctness_proof,
-                &pqr_credential_values,
+                &pqr_blind_credential_values,
                 &pqr_credential_nonce,
             )
             .unwrap();
@@ -2170,7 +2207,9 @@ mod openssl_tests {
             // 5. Prover processes XYZ credential
             Prover::process_credential_signature(
                 &mut pqr_credential_signature,
-                &pqr_credential_values,
+                &pqr_credential_values
+                    .merge(&pqr_blind_credential_values)
+                    .unwrap(),
                 &pqr_signature_correctness_proof,
                 &pqr_credential_secrets_blinding_factors,
                 &pqr_credential_pub_key,
@@ -2198,7 +2237,9 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_credential_values
+                        .merge(&gvt_blind_credential_values)
+                        .unwrap(),
                     &gvt_credential_pub_key,
                     None,
                     None,
@@ -2212,7 +2253,9 @@ mod openssl_tests {
                     &pqr_credential_schema,
                     &non_credential_schema,
                     &pqr_credential_signature,
-                    &pqr_credential_values,
+                    &pqr_credential_values
+                        .merge(&pqr_blind_credential_values)
+                        .unwrap(),
                     &pqr_credential_pub_key,
                     None,
                     None,
@@ -2263,7 +2306,7 @@ mod openssl_tests {
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
 
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
+            let gvt_credential_values = helpers::gvt_credential_values();
 
             // 2. Issuer creates and signs GVT credential for Prover
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -2277,6 +2320,7 @@ mod openssl_tests {
 
             let gvt_credential_nonce = new_nonce().unwrap();
 
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -2284,7 +2328,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -2307,7 +2351,9 @@ mod openssl_tests {
             // 3. Prover processes GVT credential
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_credential_values
+                    .merge(&gvt_blind_credential_values)
+                    .unwrap(),
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -2329,8 +2375,9 @@ mod openssl_tests {
 
             let pqr_credential_nonce = new_nonce().unwrap();
             // PQR credential has same value for attribute name as the GVT credential
-            let pqr_credential_values = helpers::pqr_credential_values(&link_secret);
+            let pqr_credential_values = helpers::pqr_credential_values();
 
+            let pqr_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 pqr_blinded_credential_secrets,
                 pqr_credential_secrets_blinding_factors,
@@ -2338,7 +2385,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &pqr_credential_pub_key,
                 &pqr_credential_key_correctness_proof,
-                &pqr_credential_values,
+                &pqr_blind_credential_values,
                 &pqr_credential_nonce,
             )
             .unwrap();
@@ -2361,7 +2408,9 @@ mod openssl_tests {
             // 5. Prover processes XYZ credential
             Prover::process_credential_signature(
                 &mut pqr_credential_signature,
-                &pqr_credential_values,
+                &pqr_credential_values
+                    .merge(&pqr_blind_credential_values)
+                    .unwrap(),
                 &pqr_signature_correctness_proof,
                 &pqr_credential_secrets_blinding_factors,
                 &pqr_credential_pub_key,
@@ -2391,7 +2440,9 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_credential_values
+                        .merge(&gvt_blind_credential_values)
+                        .unwrap(),
                     &gvt_credential_pub_key,
                     None,
                     None,
@@ -2405,7 +2456,9 @@ mod openssl_tests {
                     &pqr_credential_schema,
                     &non_credential_schema,
                     &pqr_credential_signature,
-                    &pqr_credential_values,
+                    &pqr_credential_values
+                        .merge(&pqr_blind_credential_values)
+                        .unwrap(),
                     &pqr_credential_pub_key,
                     None,
                     None,
@@ -2454,7 +2507,7 @@ mod openssl_tests {
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
 
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
+            let gvt_credential_values = helpers::gvt_credential_values();
 
             // 2. Issuer creates and signs GVT credential for Prover
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -2468,6 +2521,7 @@ mod openssl_tests {
 
             let gvt_credential_nonce = new_nonce().unwrap();
 
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -2475,7 +2529,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -2498,7 +2552,9 @@ mod openssl_tests {
             // 3. Prover processes GVT credential
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_credential_values
+                    .merge(&gvt_blind_credential_values)
+                    .unwrap(),
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -2519,8 +2575,9 @@ mod openssl_tests {
                 .unwrap();
 
             let pqr_credential_nonce = new_nonce().unwrap();
-            let pqr_credential_values = helpers::pqr_credential_values_1(&link_secret);
+            let pqr_credential_values = helpers::pqr_credential_values_1();
 
+            let pqr_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 pqr_blinded_credential_secrets,
                 pqr_credential_secrets_blinding_factors,
@@ -2528,7 +2585,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &pqr_credential_pub_key,
                 &pqr_credential_key_correctness_proof,
-                &pqr_credential_values,
+                &pqr_blind_credential_values,
                 &pqr_credential_nonce,
             )
             .unwrap();
@@ -2551,7 +2608,9 @@ mod openssl_tests {
             // 5. Prover processes XYZ credential
             Prover::process_credential_signature(
                 &mut pqr_credential_signature,
-                &pqr_credential_values,
+                &pqr_credential_values
+                    .merge(&pqr_blind_credential_values)
+                    .unwrap(),
                 &pqr_signature_correctness_proof,
                 &pqr_credential_secrets_blinding_factors,
                 &pqr_credential_pub_key,
@@ -2581,7 +2640,9 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_credential_values
+                        .merge(&gvt_blind_credential_values)
+                        .unwrap(),
                     &gvt_credential_pub_key,
                     None,
                     None,
@@ -2595,7 +2656,9 @@ mod openssl_tests {
                     &pqr_credential_schema,
                     &non_credential_schema,
                     &pqr_credential_signature,
-                    &pqr_credential_values,
+                    &pqr_credential_values
+                        .merge(&pqr_blind_credential_values)
+                        .unwrap(),
                     &pqr_credential_pub_key,
                     None,
                     None,
@@ -2649,7 +2712,7 @@ mod openssl_tests {
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
 
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
+            let gvt_credential_values = helpers::gvt_credential_values();
 
             // 2. Issuer creates and signs GVT credential for Prover
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -2663,6 +2726,7 @@ mod openssl_tests {
 
             let gvt_credential_nonce = new_nonce().unwrap();
 
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 gvt_blinded_credential_secrets,
                 gvt_credential_secrets_blinding_factors,
@@ -2670,7 +2734,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &gvt_credential_key_correctness_proof,
-                &gvt_credential_values,
+                &gvt_blind_credential_values,
                 &gvt_credential_nonce,
             )
             .unwrap();
@@ -2693,7 +2757,9 @@ mod openssl_tests {
             // 3. Prover processes GVT credential
             Prover::process_credential_signature(
                 &mut gvt_credential_signature,
-                &gvt_credential_values,
+                &gvt_credential_values
+                    .merge(&gvt_blind_credential_values)
+                    .unwrap(),
                 &gvt_signature_correctness_proof,
                 &gvt_credential_secrets_blinding_factors,
                 &gvt_credential_pub_key,
@@ -2714,8 +2780,9 @@ mod openssl_tests {
                 .unwrap();
 
             let xyz_credential_nonce = new_nonce().unwrap();
-            let xyz_credential_values = helpers::xyz_credential_values(&link_secret);
+            let xyz_credential_values = helpers::xyz_credential_values();
 
+            let xyz_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 xyz_blinded_credential_secrets,
                 xyz_credential_secrets_blinding_factors,
@@ -2723,7 +2790,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &xyz_credential_pub_key,
                 &xyz_credential_key_correctness_proof,
-                &xyz_credential_values,
+                &xyz_blind_credential_values,
                 &xyz_credential_nonce,
             )
             .unwrap();
@@ -2746,7 +2813,9 @@ mod openssl_tests {
             // 5. Prover processes XYZ credential
             Prover::process_credential_signature(
                 &mut xyz_credential_signature,
-                &xyz_credential_values,
+                &xyz_credential_values
+                    .merge(&xyz_blind_credential_values)
+                    .unwrap(),
                 &xyz_signature_correctness_proof,
                 &xyz_credential_secrets_blinding_factors,
                 &xyz_credential_pub_key,
@@ -2774,7 +2843,9 @@ mod openssl_tests {
                     &gvt_credential_schema,
                     &non_credential_schema,
                     &gvt_credential_signature,
-                    &gvt_credential_values,
+                    &gvt_credential_values
+                        .merge(&gvt_blind_credential_values)
+                        .unwrap(),
                     &gvt_credential_pub_key,
                     None,
                     None,
@@ -2788,7 +2859,9 @@ mod openssl_tests {
                     &xyz_credential_schema,
                     &non_credential_schema,
                     &xyz_credential_signature,
-                    &xyz_credential_values,
+                    &xyz_credential_values
+                        .merge(&xyz_blind_credential_values)
+                        .unwrap(),
                     &xyz_credential_pub_key,
                     None,
                     None,
@@ -2861,9 +2934,10 @@ mod openssl_tests {
 
             // 4. Issuer issues first credential
             let link_secret_1 = Prover::new_link_secret().unwrap();
-            let credential_values_1 = helpers::gvt_credential_values(&link_secret_1);
+            let credential_values_1 = helpers::gvt_credential_values();
 
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_1 = helpers::blind_credential_values(&link_secret_1);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -2871,7 +2945,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values_1,
+                &blind_credential_values_1,
                 &credential_nonce,
             )
             .unwrap();
@@ -2902,7 +2976,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
-                &credential_values_1,
+                &credential_values_1
+                    .merge(&blind_credential_values_1)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -2915,9 +2991,10 @@ mod openssl_tests {
 
             // 5. Issuer issues second credential
             let link_secret_2 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_2);
+            let credential_values_2 = helpers::gvt_credential_values();
 
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_2 = helpers::blind_credential_values(&link_secret_2);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -2925,7 +3002,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_2,
                 &credential_nonce,
             )
             .unwrap();
@@ -2938,7 +3015,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_2,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_2,
@@ -2953,7 +3030,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
-                &credential_values,
+                &credential_values_2
+                    .merge(&blind_credential_values_2)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -2966,9 +3045,10 @@ mod openssl_tests {
 
             // 6. Issuer issues third credential
             let link_secret_3 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_3);
+            let credential_values_3 = helpers::gvt_credential_values();
 
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_3 = helpers::blind_credential_values(&link_secret_3);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -2976,7 +3056,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_3,
                 &credential_nonce,
             )
             .unwrap();
@@ -2989,7 +3069,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_3,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_3,
@@ -3003,7 +3083,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
-                &credential_values,
+                &credential_values_3
+                    .merge(&blind_credential_values_3)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3035,7 +3117,9 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature_1,
-                    &credential_values_1,
+                    &credential_values_1
+                        .merge(&blind_credential_values_1)
+                        .unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness_1),
@@ -3086,9 +3170,10 @@ mod openssl_tests {
 
             // 4. Issuer issues first credential
             let link_secret_1 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_1);
+            let credential_values_1 = helpers::gvt_credential_values();
 
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_1 = helpers::blind_credential_values(&link_secret_1);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3096,7 +3181,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_1,
                 &credential_nonce,
             )
             .unwrap();
@@ -3109,7 +3194,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_1,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_1,
@@ -3123,7 +3208,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
-                &credential_values,
+                &credential_values_1
+                    .merge(&blind_credential_values_1)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3136,8 +3223,9 @@ mod openssl_tests {
 
             // 5. Issuer issues second credential
             let link_secret_2 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_2);
+            let credential_values_2 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_2 = helpers::blind_credential_values(&link_secret_2);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3145,7 +3233,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_2,
                 &credential_nonce,
             )
             .unwrap();
@@ -3159,7 +3247,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_2,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_2,
@@ -3173,7 +3261,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
-                &credential_values,
+                &credential_values_2
+                    .merge(&blind_credential_values_2)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3186,8 +3276,9 @@ mod openssl_tests {
 
             // 6. Issuer issues third credential
             let link_secret_3 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_3);
+            let credential_values_3 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_3 = helpers::blind_credential_values(&link_secret_3);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3195,7 +3286,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_3,
                 &credential_nonce,
             )
             .unwrap();
@@ -3212,7 +3303,7 @@ mod openssl_tests {
                 &blinded_credential_secrets_correctness_proof,
                 &credential_nonce,
                 &credential_issuance_nonce,
-                &credential_values,
+                &credential_values_3,
                 &credential_pub_key,
                 &credential_priv_key,
                 rev_idx_3,
@@ -3227,7 +3318,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
-                &credential_values,
+                &credential_values_3
+                    .merge(&blind_credential_values_3)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3276,7 +3369,9 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature_3,
-                    &credential_values,
+                    &credential_values_3
+                        .merge(&blind_credential_values_3)
+                        .unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness_3),
@@ -3327,8 +3422,9 @@ mod openssl_tests {
 
             // 4. Issuer issues first credential
             let link_secret_1 = Prover::new_link_secret().unwrap();
-            let credential_values_1 = helpers::gvt_credential_values(&link_secret_1);
+            let credential_values_1 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_1 = helpers::blind_credential_values(&link_secret_1);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3336,7 +3432,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values_1,
+                &blind_credential_values_1,
                 &credential_nonce,
             )
             .unwrap();
@@ -3368,7 +3464,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
-                &credential_values_1,
+                &credential_values_1
+                    .merge(&blind_credential_values_1)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3381,8 +3479,9 @@ mod openssl_tests {
 
             // 5. Issuer issues second credential
             let link_secret_2 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_2);
+            let credential_values_2 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_2 = helpers::blind_credential_values(&link_secret_2);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3390,7 +3489,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_2,
                 &credential_nonce,
             )
             .unwrap();
@@ -3403,7 +3502,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_2,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_2,
@@ -3417,7 +3516,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
-                &credential_values,
+                &credential_values_2
+                    .merge(&blind_credential_values_2)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3430,8 +3531,9 @@ mod openssl_tests {
 
             // 6. Issuer issues third credential
             let link_secret_3 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_3);
+            let credential_values_3 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_3 = helpers::blind_credential_values(&link_secret_3);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3439,7 +3541,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_3,
                 &credential_nonce,
             )
             .unwrap();
@@ -3452,7 +3554,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_3,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_3,
@@ -3466,7 +3568,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
-                &credential_values,
+                &credential_values_3
+                    .merge(&blind_credential_values_3)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3509,7 +3613,9 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature_1,
-                    &credential_values_1,
+                    &credential_values_1
+                        .merge(&blind_credential_values_1)
+                        .unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness_1),
@@ -3561,8 +3667,9 @@ mod openssl_tests {
 
             // 4. Issuer issues first credential
             let link_secret_1 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_1);
+            let credential_values = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values = helpers::blind_credential_values(&link_secret_1);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3570,7 +3677,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -3597,7 +3704,7 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3610,8 +3717,9 @@ mod openssl_tests {
 
             // 5. Issuer issues second credential
             let link_secret_2 = Prover::new_link_secret().unwrap();
-            let credential_values_2 = helpers::gvt_credential_values(&link_secret_2);
+            let credential_values_2 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_2 = helpers::blind_credential_values(&link_secret_2);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3619,7 +3727,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values_2,
+                &blind_credential_values_2,
                 &credential_nonce,
             )
             .unwrap();
@@ -3651,7 +3759,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
-                &credential_values_2,
+                &credential_values_2
+                    .merge(&blind_credential_values_2)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3664,8 +3774,9 @@ mod openssl_tests {
 
             // 6. Issuer issues third credential
             let link_secret_3 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_3);
+            let credential_values_3 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_3 = helpers::blind_credential_values(&link_secret_3);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3673,7 +3784,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_3,
                 &credential_nonce,
             )
             .unwrap();
@@ -3686,7 +3797,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_3,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_3,
@@ -3702,7 +3813,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_3,
-                &credential_values,
+                &credential_values_3
+                    .merge(&blind_credential_values_3)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3763,7 +3876,9 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature_2,
-                    &credential_values_2,
+                    &credential_values_2
+                        .merge(&blind_credential_values_2)
+                        .unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness_2),
@@ -3813,8 +3928,9 @@ mod openssl_tests {
 
             // 4. Issuer issues first credential
             let link_secret_1 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_1);
+            let credential_values = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values = helpers::blind_credential_values(&link_secret_1);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3822,7 +3938,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -3849,7 +3965,7 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_1,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3862,8 +3978,9 @@ mod openssl_tests {
 
             // 5. Issuer issues second credential
             let link_secret_2 = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret_2);
+            let credential_values_2 = helpers::gvt_credential_values();
             let credential_nonce = new_nonce().unwrap();
+            let blind_credential_values_2 = helpers::blind_credential_values(&link_secret_2);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3871,7 +3988,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values_2,
                 &credential_nonce,
             )
             .unwrap();
@@ -3884,7 +4001,7 @@ mod openssl_tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &credential_issuance_nonce,
-                    &credential_values,
+                    &credential_values_2,
                     &credential_pub_key,
                     &credential_priv_key,
                     rev_idx_2,
@@ -3899,7 +4016,9 @@ mod openssl_tests {
 
             Prover::process_credential_signature(
                 &mut credential_signature_2,
-                &credential_values,
+                &credential_values_2
+                    .merge(&blind_credential_values_2)
+                    .unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -3926,7 +4045,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature_1,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness_1),
@@ -3975,12 +4094,13 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -3988,7 +4108,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4016,9 +4136,11 @@ mod openssl_tests {
                 .unwrap();
 
             // 8. Prover processes credential signature
+            let prover_credential_values =
+                credential_values.merge(&blind_credential_values).unwrap();
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &prover_credential_values,
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4044,7 +4166,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &prover_credential_values,
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -4103,12 +4225,13 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -4116,7 +4239,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4146,7 +4269,7 @@ mod openssl_tests {
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4182,7 +4305,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -4231,12 +4354,13 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -4244,7 +4368,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4275,7 +4399,7 @@ mod openssl_tests {
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4311,7 +4435,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -4360,12 +4484,13 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -4373,7 +4498,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4403,7 +4528,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4428,7 +4553,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -4528,12 +4653,13 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -4541,7 +4667,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4571,7 +4697,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4596,7 +4722,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     Some(&rev_reg),
                     Some(&witness),
@@ -4696,17 +4822,18 @@ mod openssl_tests {
 
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -4738,7 +4865,7 @@ mod openssl_tests {
                 &blinded_credential_secrets_correctness_proof,
                 &credential_nonce,
                 &credential_issuance_nonce,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &credential_pub_key,
                 &credential_priv_key,
                 2,
@@ -4778,12 +4905,13 @@ mod openssl_tests {
             // FIRST Issue of credential
             // 4. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 6. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -4791,7 +4919,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -4823,7 +4951,7 @@ mod openssl_tests {
             // 10. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -4920,9 +5048,6 @@ mod openssl_tests {
 
             // 19. Issuer creates and signs new credential values
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-            credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
             credential_values_builder
                 .add_dec_known("name", "1139481716457488690172217916278103335")
                 .unwrap();
@@ -5038,17 +5163,18 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -5082,7 +5208,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     None,
                     None,
@@ -5120,12 +5246,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5133,7 +5260,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5157,7 +5284,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5176,7 +5303,11 @@ mod openssl_tests {
             let mut proof_builder = Prover::new_proof_builder().unwrap();
             proof_builder.add_common_attribute("master_secret").unwrap();
             let another_link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&another_link_secret);
+            let other_blind_credential_values =
+                helpers::blind_credential_values(&another_link_secret);
+            let credential_values = helpers::gvt_credential_values()
+                .merge(&other_blind_credential_values)
+                .unwrap();
 
             proof_builder
                 .add_sub_proof_request(
@@ -5223,12 +5354,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5236,7 +5368,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5260,7 +5392,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5285,7 +5417,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     None,
                     None,
@@ -5331,12 +5463,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5344,7 +5477,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5368,7 +5501,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5392,7 +5525,7 @@ mod openssl_tests {
                     &credential_schema,
                     &non_credential_schema,
                     &credential_signature,
-                    &credential_values,
+                    &credential_values.merge(&blind_credential_values).unwrap(),
                     &credential_pub_key,
                     None,
                     None,
@@ -5504,17 +5637,18 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::xyz_credential_values(&link_secret);
+            let credential_values = helpers::xyz_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -5555,12 +5689,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5568,7 +5703,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5592,7 +5727,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5607,7 +5742,9 @@ mod openssl_tests {
             let mut proof_builder = Prover::new_proof_builder().unwrap();
 
             // Wrong credential values
-            let credential_values = helpers::xyz_credential_values(&link_secret);
+            let credential_values = helpers::xyz_credential_values()
+                .merge(&blind_credential_values)
+                .unwrap();
 
             let sub_proof_request = helpers::gvt_sub_proof_request();
 
@@ -5640,12 +5777,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5653,7 +5791,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5677,7 +5815,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5700,7 +5838,7 @@ mod openssl_tests {
                 &credential_schema,
                 &non_credential_schema,
                 &credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &credential_pub_key,
                 None,
                 None,
@@ -5723,12 +5861,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5736,7 +5875,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5760,7 +5899,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5787,7 +5926,7 @@ mod openssl_tests {
                 &credential_schema,
                 &non_credential_schema,
                 &credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &credential_pub_key,
                 None,
                 None,
@@ -5810,12 +5949,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -5823,7 +5963,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -5847,7 +5987,7 @@ mod openssl_tests {
             // 8. Prover processes credential signature
             Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -5878,7 +6018,7 @@ mod openssl_tests {
                 &credential_schema,
                 &non_credential_schema,
                 &credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &credential_pub_key,
                 None,
                 None,
@@ -5924,7 +6064,6 @@ mod openssl_tests {
 
             // 1. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
 
             // 2. Issuer creates GVT credential definition
             let gvt_credential_schema = helpers::gvt_credential_schema();
@@ -5943,10 +6082,11 @@ mod openssl_tests {
             let gvt_credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blind master secret by gvt_public_key and xyz_key_correctness_proof
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let res = Prover::blind_credential_secrets(
                 &gvt_credential_pub_key,
                 &xyz_credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &gvt_credential_nonce,
             );
             assert_eq!(ErrorKind::InvalidState, res.unwrap_err().kind());
@@ -5968,7 +6108,7 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
@@ -5976,11 +6116,12 @@ mod openssl_tests {
             let other_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &other_nonce,
                 )
                 .unwrap();
@@ -6024,17 +6165,17 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let gvt_credential_values = helpers::gvt_credential_values(&link_secret);
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret by GVT key
+            let gvt_blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &gvt_credential_pub_key,
                     &gvt_credential_key_correctness_proof,
-                    &gvt_credential_values,
+                    &gvt_blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -6043,7 +6184,7 @@ mod openssl_tests {
             let credential_issuance_nonce = new_nonce().unwrap();
 
             // 7. Issuer creates credential values
-            let xyz_credential_values = helpers::xyz_credential_values(&link_secret);
+            let xyz_credential_values = helpers::xyz_credential_values();
 
             // 8. Issuer signs XYZ credential values for Prover
             let res = Issuer::sign_credential(
@@ -6073,17 +6214,18 @@ mod openssl_tests {
 
             // 2. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 3. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 4. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (_, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -6092,7 +6234,7 @@ mod openssl_tests {
             let (blinded_credential_secrets, _, _) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -6131,12 +6273,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -6144,7 +6287,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -6172,7 +6315,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             let res = Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -6200,12 +6343,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -6213,7 +6357,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -6254,7 +6398,7 @@ mod openssl_tests {
             // 10. Prover processes credential signature
             let res = Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -6282,17 +6426,18 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (blinded_credential_secrets, _, blinded_credential_secrets_correctness_proof) =
                 Prover::blind_credential_secrets(
                     &credential_pub_key,
                     &credential_key_correctness_proof,
-                    &credential_values,
+                    &blind_credential_values,
                     &credential_nonce,
                 )
                 .unwrap();
@@ -6327,7 +6472,7 @@ mod openssl_tests {
             // 10. Prover processes credential signature
             let res = Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -6354,12 +6499,13 @@ mod openssl_tests {
 
             // 3. Prover creates master secret
             let link_secret = Prover::new_link_secret().unwrap();
-            let credential_values = helpers::gvt_credential_values(&link_secret);
+            let credential_values = helpers::gvt_credential_values();
 
             // 4. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
             let credential_nonce = new_nonce().unwrap();
 
             // 5. Prover blinds master secret
+            let blind_credential_values = helpers::blind_credential_values(&link_secret);
             let (
                 blinded_credential_secrets,
                 credential_secrets_blinding_factors,
@@ -6367,7 +6513,7 @@ mod openssl_tests {
             ) = Prover::blind_credential_secrets(
                 &credential_pub_key,
                 &credential_key_correctness_proof,
-                &credential_values,
+                &blind_credential_values,
                 &credential_nonce,
             )
             .unwrap();
@@ -6395,7 +6541,7 @@ mod openssl_tests {
             // 9. Prover processes credential signature
             let res = Prover::process_credential_signature(
                 &mut credential_signature,
-                &credential_values,
+                &credential_values.merge(&blind_credential_values).unwrap(),
                 &signature_correctness_proof,
                 &credential_secrets_blinding_factors,
                 &credential_pub_key,
@@ -6410,6 +6556,14 @@ mod openssl_tests {
 
     mod helpers {
         use super::*;
+
+        pub fn blind_credential_values(link_secret: &LinkSecret) -> CredentialValues {
+            let mut credential_values_builder = CredentialValuesBuilder::new().unwrap();
+            credential_values_builder
+                .add_value_hidden("master_secret", link_secret.as_ref())
+                .unwrap();
+            credential_values_builder.finalize().unwrap()
+        }
 
         pub fn gvt_credential_schema() -> CredentialSchema {
             let mut credential_schema_builder = Issuer::new_credential_schema_builder().unwrap();
@@ -6443,11 +6597,8 @@ mod openssl_tests {
             non_credential_schema_builder.finalize().unwrap()
         }
 
-        pub fn gvt_credential_values(link_secret: &LinkSecret) -> CredentialValues {
+        pub fn gvt_credential_values() -> CredentialValues {
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-            credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
             credential_values_builder
                 .add_dec_known("name", "1139481716457488690172217916278103335")
                 .unwrap();
@@ -6466,11 +6617,8 @@ mod openssl_tests {
             credential_values_builder.finalize().unwrap()
         }
 
-        pub fn xyz_credential_values(link_secret: &LinkSecret) -> CredentialValues {
+        pub fn xyz_credential_values() -> CredentialValues {
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-            credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
             credential_values_builder
                 .add_dec_known("status", "51792877103171595686471452153480627530895")
                 .unwrap();
@@ -6480,11 +6628,8 @@ mod openssl_tests {
             credential_values_builder.finalize().unwrap()
         }
 
-        pub fn pqr_credential_values(link_secret: &LinkSecret) -> CredentialValues {
+        pub fn pqr_credential_values() -> CredentialValues {
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-            credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
             credential_values_builder
                 .add_dec_known("name", "1139481716457488690172217916278103335")
                 .unwrap();
@@ -6494,11 +6639,8 @@ mod openssl_tests {
             credential_values_builder.finalize().unwrap()
         }
 
-        pub fn pqr_credential_values_1(link_secret: &LinkSecret) -> CredentialValues {
+        pub fn pqr_credential_values_1() -> CredentialValues {
             let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-            credential_values_builder
-                .add_value_hidden("master_secret", &link_secret.value().unwrap())
-                .unwrap();
             credential_values_builder
                 .add_dec_known("name", "7181645748869017221791627810333511394")
                 .unwrap();

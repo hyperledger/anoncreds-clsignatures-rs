@@ -55,8 +55,8 @@ impl Prover {
     /// let link_secret = Prover::new_link_secret().unwrap();
     /// let credential_nonce = new_nonce().unwrap();
     ///
-    /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
+    /// let mut credential_values_builder = Prover::new_credential_values_builder().unwrap();
+    /// credential_values_builder.add_value_hidden("master_secret", link_secret.as_ref()).unwrap();
     /// let cred_values = credential_values_builder.finalize().unwrap();
     ///
     /// let (_blinded_credential_secrets, _credential_secrets_blinding_factors, _blinded_credential_secrets_correctness_proof) =
@@ -172,12 +172,14 @@ impl Prover {
     /// let credential_nonce = new_nonce().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &credential_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -191,8 +193,9 @@ impl Prover {
     ///                             &credential_pub_key,
     ///                             &credential_priv_key).unwrap();
     ///
+    /// let prover_cred_values = credential_values.merge(&blind_cred_values).unwrap();
     /// Prover::process_credential_signature(&mut credential_signature,
-    ///                                      &credential_values,
+    ///                                      &prover_cred_values,
     ///                                      &signature_correctness_proof,
     ///                                      &credential_secrets_blinding_factors,
     ///                                      &credential_pub_key,
@@ -289,6 +292,22 @@ impl Prover {
             c_list: Vec::new(),
             tau_list: Vec::new(),
         })
+    }
+
+    /// Creates and returns credential values entity builder.
+    ///
+    /// The purpose of credential values builder is building of credential values entity that
+    /// represents credential attributes values map.
+    ///
+    /// # Example
+    /// ```
+    /// use anoncreds_clsignatures::Prover;
+    ///
+    /// let mut credential_values_builder = Prover::new_credential_values_builder().unwrap();
+    /// ```
+    pub fn new_credential_values_builder() -> ClResult<CredentialValuesBuilder> {
+        let res = CredentialValuesBuilder::new()?;
+        Ok(res)
     }
 
     #[cfg(test)]
@@ -865,12 +884,14 @@ impl ProofBuilder {
     /// let credential_nonce = new_nonce().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &credential_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -884,8 +905,9 @@ impl ProofBuilder {
     ///                             &credential_pub_key,
     ///                             &credential_priv_key).unwrap();
     ///
+    /// let prover_cred_values = credential_values.merge(&blind_cred_values).unwrap();
     /// Prover::process_credential_signature(&mut credential_signature,
-    ///                                      &credential_values,
+    ///                                      &prover_cred_values,
     ///                                      &signature_correctness_proof,
     ///                                      &credential_secrets_blinding_factors,
     ///                                      &credential_pub_key,
@@ -902,7 +924,7 @@ impl ProofBuilder {
     ///                                     &credential_schema,
     ///                                     &non_credential_schema,
     ///                                     &credential_signature,
-    ///                                     &credential_values,
+    ///                                     &prover_cred_values,
     ///                                     &credential_pub_key,
     ///                                     None,
     ///                                     None).unwrap();
@@ -1017,15 +1039,16 @@ impl ProofBuilder {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap());
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
     ///
-    /// let credential_nonce = new_nonce().unwrap();
+    /// let mut blinded_cv_builder = Prover::new_credential_values_builder().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref());
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &credential_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -1039,8 +1062,9 @@ impl ProofBuilder {
     ///                             &credential_pub_key,
     ///                             &credential_priv_key).unwrap();
     ///
+    /// let prover_cred_values = credential_values.merge(&blind_cred_values).unwrap();
     /// Prover::process_credential_signature(&mut credential_signature,
-    ///                                      &credential_values,
+    ///                                      &prover_cred_values,
     ///                                      &signature_correctness_proof,
     ///                                      &credential_secrets_blinding_factors,
     ///                                      &credential_pub_key,
@@ -1057,7 +1081,7 @@ impl ProofBuilder {
     ///                                     &credential_schema,
     ///                                     &non_credential_schema,
     ///                                     &credential_signature,
-    ///                                     &credential_values,
+    ///                                     &prover_cred_values,
     ///                                     &credential_pub_key,
     ///                                     None,
     ///                                     None).unwrap();
@@ -2210,11 +2234,17 @@ mod tests {
             Instant::now() - start_time
         );
 
-        let cred_values = mocks::proof_credential_values();
+        let issue_cred_values = issuer::mocks::credential_values();
+        let proof_cred_values = mocks::proof_credential_values();
 
         // Issue first correct Claim
         let credential_nonce = new_nonce().unwrap();
 
+        let mut credential_values_builder = Prover::new_credential_values_builder().unwrap();
+        credential_values_builder
+            .add_value_hidden("master_secret", &mocks::link_secret().ms)
+            .unwrap();
+        let blind_cred_values = credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -2222,7 +2252,7 @@ mod tests {
         ) = Prover::blind_credential_secrets(
             &cred_pub_key,
             &cred_key_correctness_proof,
-            &cred_values,
+            &blind_cred_values,
             &credential_nonce,
         )
         .expect("Error creating linked secret commitment");
@@ -2237,7 +2267,7 @@ mod tests {
                 &blinded_credential_secrets_correctness_proof,
                 &credential_nonce,
                 &cred_issuance_nonce,
-                &cred_values,
+                &issue_cred_values,
                 &cred_pub_key,
                 &cred_priv_key,
                 rev_idx,
@@ -2251,7 +2281,7 @@ mod tests {
 
         Prover::process_credential_signature(
             &mut cred_signature,
-            &cred_values,
+            &proof_cred_values,
             &signature_correctness_proof,
             &credential_secrets_blinding_factors,
             &cred_pub_key,
@@ -2323,9 +2353,15 @@ mod tests {
             )
             .expect("Error creating revocation registry");
 
-        let cred_values = mocks::proof_credential_values();
+        let issue_cred_values = issuer::mocks::credential_values();
+        let proof_cred_values = mocks::proof_credential_values();
         let credential_nonce = new_nonce().unwrap();
 
+        let mut credential_values_builder = Prover::new_credential_values_builder().unwrap();
+        credential_values_builder
+            .add_value_hidden("master_secret", &mocks::link_secret().ms)
+            .unwrap();
+        let blind_cred_values = credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -2333,7 +2369,7 @@ mod tests {
         ) = Prover::blind_credential_secrets(
             &cred_pub_key,
             &cred_key_correctness_proof,
-            &cred_values,
+            &blind_cred_values,
             &credential_nonce,
         )
         .expect("Error creating linked secret commitment");
@@ -2367,7 +2403,7 @@ mod tests {
                     &blinded_credential_secrets_correctness_proof,
                     &credential_nonce,
                     &cred_issuance_nonce,
-                    &cred_values,
+                    &issue_cred_values,
                     &cred_pub_key,
                     &cred_priv_key,
                     rev_idx,
@@ -2380,7 +2416,7 @@ mod tests {
 
             Prover::process_credential_signature(
                 &mut signature,
-                &cred_values,
+                &proof_cred_values,
                 &signature_proof,
                 &credential_secrets_blinding_factors,
                 &cred_pub_key,
@@ -2407,7 +2443,7 @@ mod tests {
                     &cred_schema,
                     &non_cred_schema,
                     &cred.signature,
-                    &cred_values,
+                    &proof_cred_values,
                     &cred_pub_key,
                     Some(&rev_reg),
                     Some(&cred.witness),
@@ -2445,7 +2481,7 @@ mod tests {
                 &cred_schema,
                 &non_cred_schema,
                 &cred.signature,
-                &cred_values,
+                &proof_cred_values,
                 &cred_pub_key,
                 Some(&rev_reg),
                 Some(&cred.witness),
@@ -3099,7 +3135,7 @@ pub mod mocks {
     }
 
     pub fn credential_revealed_attributes_values() -> CredentialValues {
-        let mut credential_values_builder = CredentialValuesBuilder::new().unwrap();
+        let mut credential_values_builder = Prover::new_credential_values_builder().unwrap();
         credential_values_builder
             .add_dec_known("name", "1139481716457488690172217916278103335")
             .unwrap();

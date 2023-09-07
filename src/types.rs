@@ -129,13 +129,20 @@ impl CredentialValue {
 }
 
 /// Values of attributes from `Claim Schema` (must be integers).
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CredentialValues {
     pub(crate) attrs_values: BTreeMap<String, CredentialValue>,
 }
 
 impl CredentialValues {
+    pub fn merge(&self, values: &Self) -> ClResult<CredentialValues> {
+        let mut vals = self.try_clone()?;
+        let mut add = values.try_clone()?;
+        vals.attrs_values.append(&mut add.attrs_values);
+        Ok(vals)
+    }
+
     pub fn try_clone(&self) -> ClResult<CredentialValues> {
         Ok(CredentialValues {
             attrs_values: helpers::clone_credential_value_map(&self.attrs_values)?,

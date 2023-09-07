@@ -19,11 +19,8 @@ fn get_non_credential_schema() -> NonCredentialSchema {
     non_credential_schema_builder.finalize().unwrap()
 }
 
-fn get_credential_values(link_secret: &LinkSecret) -> CredentialValues {
+fn get_credential_values() -> CredentialValues {
     let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    credential_values_builder
-        .add_value_hidden("master_secret", &link_secret.value().unwrap())
-        .unwrap();
     credential_values_builder
         .add_dec_known("name", "1139481716457488690172217916278103335")
         .unwrap();
@@ -101,12 +98,18 @@ fn setup_cred_and_issue(
     let start = Instant::now();
     let max_issue = max_cred_num.min(100);
     for i in 0..max_issue {
-        let credential_values = get_credential_values(&Prover::new_link_secret().unwrap());
+        let credential_values = get_credential_values();
 
         // 5. Issuer creates nonce used by Prover to create correctness proof for blinded secrets
         let blinding_correctness_nonce = new_nonce().unwrap();
 
-        // 6. Prover blinds master secret
+        // 6. Prover blinds link secret
+        let link_secret = Prover::new_link_secret().unwrap();
+        let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
+        credential_values_builder
+            .add_value_hidden("master_secret", link_secret.as_ref())
+            .unwrap();
+        let blind_cred_values = credential_values_builder.finalize().unwrap();
         let (
             blinded_credential_secrets,
             credential_secrets_blinding_factors,
@@ -114,7 +117,7 @@ fn setup_cred_and_issue(
         ) = Prover::blind_credential_secrets(
             &credential_pub_key,
             &credential_key_correctness_proof,
-            &credential_values,
+            &blind_cred_values,
             &blinding_correctness_nonce,
         )
         .unwrap();
@@ -153,9 +156,10 @@ fn setup_cred_and_issue(
         }
 
         // 9. Prover processes credential signature
+        let prover_cred_values = credential_values.merge(&blind_cred_values).unwrap();
         Prover::process_credential_signature(
             &mut credential_signature,
-            &credential_values,
+            &prover_cred_values,
             &signature_correctness_proof,
             &credential_secrets_blinding_factors,
             &credential_pub_key,
@@ -166,7 +170,7 @@ fn setup_cred_and_issue(
         )
         .unwrap();
 
-        prover_data.push((rev_idx, credential_values, credential_signature, witness));
+        prover_data.push((rev_idx, prover_cred_values, credential_signature, witness));
     }
 
     println!("Issuance time for {max_issue} is {:.2?}", start.elapsed());

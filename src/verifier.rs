@@ -150,6 +150,7 @@ impl ProofVerifier {
     /// #Example
     /// ```
     /// use anoncreds_clsignatures::new_nonce;
+    /// use anoncreds_clsignatures::CredentialValuesBuilder;
     /// use anoncreds_clsignatures::Issuer;
     /// use anoncreds_clsignatures::Prover;
     /// use anoncreds_clsignatures::Verifier;
@@ -167,13 +168,16 @@ impl ProofVerifier {
     /// let link_secret = Prover::new_link_secret().unwrap();
     ///
     /// let mut credential_values_builder = Issuer::new_credential_values_builder().unwrap();
-    /// credential_values_builder.add_value_hidden("master_secret", &link_secret.value().unwrap()).unwrap();
     /// credential_values_builder.add_dec_known("sex", "5944657099558967239210949258394887428692050081607692519917050011144233115103").unwrap();
     /// let credential_values = credential_values_builder.finalize().unwrap();
     ///
     /// let credential_nonce = new_nonce().unwrap();
+    ///
+    /// let mut blinded_cv_builder = CredentialValuesBuilder::new().unwrap();
+    /// blinded_cv_builder.add_value_hidden("master_secret", link_secret.as_ref()).unwrap();
+    /// let blind_cred_values = blinded_cv_builder.finalize().unwrap();
     /// let (blinded_credential_secrets, credential_secrets_blinding_factors, blinded_credential_secrets_correctness_proof) =
-    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &credential_values, &credential_nonce).unwrap();
+    ///     Prover::blind_credential_secrets(&credential_pub_key, &cred_key_correctness_proof, &blind_cred_values, &credential_nonce).unwrap();
     ///
     /// let credential_issuance_nonce = new_nonce().unwrap();
     ///
@@ -187,8 +191,9 @@ impl ProofVerifier {
     ///                             &credential_pub_key,
     ///                             &credential_priv_key).unwrap();
     ///
+    /// let prover_cred_values = credential_values.merge(&blind_cred_values).unwrap();
     /// Prover::process_credential_signature(&mut credential_signature,
-    ///                                      &credential_values,
+    ///                                      &prover_cred_values,
     ///                                      &signature_correctness_proof,
     ///                                      &credential_secrets_blinding_factors,
     ///                                      &credential_pub_key,
@@ -205,7 +210,7 @@ impl ProofVerifier {
     ///                                     &credential_schema,
     ///                                     &non_credential_schema,
     ///                                     &credential_signature,
-    ///                                     &credential_values,
+    ///                                     &prover_cred_values,
     ///                                     &credential_pub_key,
     ///                                     None,
     ///                                     None).unwrap();

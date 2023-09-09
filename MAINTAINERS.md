@@ -15,15 +15,15 @@ Maintainers are assigned the following scopes in this repository:
 
 <!-- Please keep this sorted alphabetically by github -->
 
-| Name              | GitHub ID       | Scope      | LFID | Discord ID | Email | Company Affiliation |
-| ----------------- | --------------- | ---------- | ---- | ---------- | ----- | ------------------- |
-| Andrew Whitehead  | andrewwhitehead | Admin      |      |            |       | BC Gov              |
-| Berend Sliedrecht | blu3beri        | Maintainer |      |            |       | Animo Solutions     |
-| Darko Kulic       | dkulic          | Maintainer |      |            |       | SICPA               |
-| Stephen Curran    | swcurran        | Admin      |      |            |       | BC Gov              |
-| Sam Curran        | TelegramSam     | Maintainer |      |            |       | Indico PBC          |
-| Timo Glastra      | TimoGlastra     | Admin      |      |            |       | Animo Solutions     |
-| Wade Barnes       | WadeBarnes      | Admin      |      |            |       | BC Gov              |
+| Name              | GitHub ID        | Scope      | LFID | Discord ID | Email | Company Affiliation |
+| ----------------- | ---------------- | ---------- | ---- | ---------- | ----- | ------------------- |
+| Andrew Whitehead  | andrewwhitehead  | Admin      |      |            |       | BC Gov              |
+| Berend Sliedrecht | berendsliedrecht | Maintainer |      |            |       | Animo Solutions     |
+| Darko Kulic       | dkulic           | Maintainer |      |            |       | SICPA               |
+| Stephen Curran    | swcurran         | Admin      |      |            |       | BC Gov              |
+| Sam Curran        | TelegramSam      | Maintainer |      |            |       | Indico PBC          |
+| Timo Glastra      | TimoGlastra      | Admin      |      |            |       | Animo Solutions     |
+| Wade Barnes       | WadeBarnes       | Admin      |      |            |       | BC Gov              |
 
 ## Emeritus Maintainers
 

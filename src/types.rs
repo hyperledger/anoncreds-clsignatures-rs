@@ -504,12 +504,11 @@ impl RevocationRegistry {
                 &rev_key_priv.gamma,
                 1..=max_cred_num,
             )?
-            .into()
         } else {
             Accumulator::new_inf()?
         };
         let rev_reg = Self {
-            accum: accum.into(),
+            accum,
         };
 
         trace!(
@@ -546,8 +545,7 @@ impl RevocationRegistry {
         }
 
         let rev_reg = Self {
-            accum: Tail::accum_indexes(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, &issued)?
-                .into(),
+            accum: Tail::accum_indexes(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, issued)?
         };
 
         trace!("RevocationRegistry::for_issued: <<< rev_reg: {:?}", rev_reg);
@@ -571,7 +569,7 @@ impl From<RevocationRegistryDelta> for RevocationRegistry {
 
 impl From<&RevocationRegistry> for RevocationRegistryDelta {
     fn from(rev_reg: &RevocationRegistry) -> RevocationRegistryDelta {
-        RevocationRegistryDelta::from_parts(None, &rev_reg, &HashSet::new(), &HashSet::new())
+        RevocationRegistryDelta::from_parts(None, rev_reg, &HashSet::new(), &HashSet::new())
     }
 }
 
@@ -688,7 +686,7 @@ impl Tail {
 
 impl From<PointG2> for Tail {
     fn from(value: PointG2) -> Self {
-        Self(value.into())
+        Self(value)
     }
 }
 
@@ -719,7 +717,7 @@ impl Tail {
         let mut pow = Self::index_pow(start, gamma)?;
         let mut acc = pow;
         while start < end {
-            pow = pow.mul_mod(&gamma)?;
+            pow = pow.mul_mod(gamma)?;
             acc = acc.add_mod(&pow)?;
             start += 1;
         }
@@ -740,7 +738,7 @@ impl Tail {
             } else if idx != pow {
                 let diff = idx - pow;
                 if diff == 1 {
-                    base = base.mul_mod(&gamma)?;
+                    base = base.mul_mod(gamma)?;
                 } else {
                     base = base.mul_mod(&Self::index_pow(diff, gamma)?)?;
                 }

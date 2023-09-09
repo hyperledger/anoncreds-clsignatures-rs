@@ -386,7 +386,7 @@ impl PointG2Inf {
 
     /// Encode to hexadecimal format
     pub fn to_string(&self) -> ClResult<String> {
-        Ok(self.0.to_string()?)
+        self.0.to_string()
     }
 
     /// Decode from hexadecimal format
@@ -543,7 +543,7 @@ impl GroupOrderElement {
             return Err(err_msg!("Invalid byte length for GroupOrderElement"));
         }
         let mut buf = [0u8; Self::BYTES_REPR_SIZE];
-        buf[(Self::BYTES_REPR_SIZE - b.len())..].copy_from_slice(&b);
+        buf[(Self::BYTES_REPR_SIZE - b.len())..].copy_from_slice(b);
         let mut bn = BIG::frombytes(&buf);
         bn.rmod(&BIG::new_ints(&CURVE_ORDER));
         bn.norm();
@@ -790,7 +790,7 @@ fn is_valid_pair(point: &FP12) -> bool {
     let mut rhs = lhs;
     rhs.frob(&f);
     rhs.frob(&f);
-    rhs.mul(&point);
+    rhs.mul(point);
     lhs.equals(&rhs)
 }
 

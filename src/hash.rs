@@ -15,7 +15,7 @@ pub fn hash_list_to_bignum(nums: &[Vec<u8>]) -> ClResult<BigNumber> {
 
     let mut hasher = Sha256::new();
     for num in nums.iter() {
-        hasher.update(&num);
+        hasher.update(num);
     }
     let hash_bytes = hasher.finalize();
     let hash_num = BigNumber::from_bytes(&hash_bytes);

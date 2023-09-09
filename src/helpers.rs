@@ -516,7 +516,7 @@ pub fn create_tau_list_expected_values(
     )?;
     let t4 = Pair::pair2(
         &proof_c.g,
-        &rev_reg.accum.as_ref(),
+        rev_reg.accum.as_ref(),
         &r_pub_key.g.neg()?,
         &proof_c.w,
     )?
@@ -577,7 +577,7 @@ pub fn create_tau_list_values(
             .a
             .mul(&params.c)?
             .add(&r_pub_key.htilde.mul(&params.r.sub_mod(&params.m)?)?)?
-            .sub(&r_pub_key.h1.mul(&m2)?)?
+            .sub(&r_pub_key.h1.mul(m2)?)?
             .sub(&r_pub_key.h2.mul(&params.s)?)?,
         &r_pub_key.h_cap,
         &r_pub_key.htilde.mul(&params.rho)?.neg()?,
@@ -585,7 +585,7 @@ pub fn create_tau_list_values(
     )?;
     let t4 = Pair::pair2(
         &r_pub_key.htilde.mul(&params.r)?,
-        &rev_reg.accum.as_ref(),
+        rev_reg.accum.as_ref(),
         &r_pub_key.g.mul(&params.r_prime)?.neg()?,
         &r_pub_key.h_cap,
     )?;

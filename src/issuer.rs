@@ -1357,7 +1357,7 @@ impl Issuer {
 
         let vr_prime_prime = GroupOrderElement::new()?;
         let c = GroupOrderElement::new()?;
-        let m2 = bignum_to_group_element_reduce(&cred_context, None)?;
+        let m2 = bignum_to_group_element_reduce(cred_context, None)?;
 
         let gamma_i = Tail::index_pow(rev_idx, &rev_key_priv.gamma)?;
         let g_i = r_pub_key.g.mul(&gamma_i)?;
@@ -1382,7 +1382,7 @@ impl Issuer {
         let rev_reg_delta = if issuance_by_default {
             None
         } else {
-            rev_reg.accum = rev_reg.accum.as_ref().add(&index_tail.as_ref())?.into();
+            rev_reg.accum = rev_reg.accum.as_ref().add(index_tail.as_ref())?.into();
 
             Some(RevocationRegistryDelta {
                 prev_accum: Some(prev_acc),
@@ -1405,9 +1405,9 @@ impl Issuer {
         };
 
         let witness = {
-            let mut omega = prev_acc.as_ref().clone();
+            let mut omega = *prev_acc.as_ref();
             if issuance_by_default {
-                omega = omega.sub(&index_tail.as_ref())?;
+                omega = omega.sub(index_tail.as_ref())?;
             }
             omega = omega.mul(&gamma_i)?;
             Witness {

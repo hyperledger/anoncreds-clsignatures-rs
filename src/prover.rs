@@ -250,7 +250,7 @@ impl Prover {
         if let (
             &mut Some(ref mut non_revocation_cred),
             Some(ref vr_prime),
-            &Some(ref r_key),
+            Some(r_key),
             Some(r_key_pub),
             Some(r_reg),
             Some(witness),
@@ -331,7 +331,7 @@ impl Prover {
             key_correctness_proof
                 .xr_cap
                 .iter()
-                .map(|&(ref key, ref _v)| key),
+                .map(|(key, _v)| key),
         );
         for r_key in pr_pub_key.r.keys() {
             if !correctness_names.contains(r_key) {
@@ -370,7 +370,7 @@ impl Prover {
         let mut ordered_r_values = Vec::new();
         let mut ordered_r_cap_values = Vec::new();
 
-        for &(ref key, ref xr_cap_value) in &key_correctness_proof.xr_cap {
+        for (key, xr_cap_value) in &key_correctness_proof.xr_cap {
             let r_value = &pr_pub_key.r[key];
             ordered_r_values.push(r_value.try_clone()?);
 
@@ -792,7 +792,7 @@ impl Prover {
 
         let z_calc = Pair::pair2(
             &r_cred.witness_signature.g_i,
-            &rev_reg.accum.as_ref(),
+            rev_reg.accum.as_ref(),
             &cred_rev_pub_key.g.neg()?,
             &witness.omega.0,
         )?;
@@ -968,7 +968,7 @@ impl ProofBuilder {
         let mut non_revoc_init_proof = None;
         let m2_tilde: BigNumber = bn_rand(LARGE_M2TILDE)?;
 
-        if let (&Some(ref r_cred), &Some(r_reg), &Some(ref r_pub_key), &Some(witness)) = (
+        if let (Some(r_cred), &Some(r_reg), Some(r_pub_key), &Some(witness)) = (
             &credential_signature.r_credential,
             &rev_reg,
             &credential_pub_key.r_key,
@@ -1283,7 +1283,7 @@ impl ProofBuilder {
             ProofBuilder::_create_c_list_values(r_cred, &c_list_params, cred_rev_pub_key, witness)?;
 
         let tau_list_params = ProofBuilder::_gen_tau_list_params()?;
-        let m2 = bignum_to_group_element_reduce(&m2_tilde, None)?;
+        let m2 = bignum_to_group_element_reduce(m2_tilde, None)?;
         let tau_list =
             create_tau_list_values(cred_rev_pub_key, rev_reg, &tau_list_params, &c_list, &m2)?;
 
@@ -1359,7 +1359,7 @@ impl ProofBuilder {
             &e_tilde,
             &v_tilde,
             &m_tilde,
-            &m2_tilde,
+            m2_tilde,
             &unrevealed_attrs,
         )?;
 

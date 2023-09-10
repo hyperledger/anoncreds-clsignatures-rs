@@ -507,9 +507,7 @@ impl RevocationRegistry {
         } else {
             Accumulator::new_inf()?
         };
-        let rev_reg = Self {
-            accum,
-        };
+        let rev_reg = Self { accum };
 
         trace!(
             "RevocationRegistry::_initial_state: <<< rev_reg: {:?}",
@@ -545,7 +543,7 @@ impl RevocationRegistry {
         }
 
         let rev_reg = Self {
-            accum: Tail::accum_indexes(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, issued)?
+            accum: Tail::accum_indexes(&cred_rev_pub_key.g_dash, &rev_key_priv.gamma, issued)?,
         };
 
         trace!("RevocationRegistry::for_issued: <<< rev_reg: {:?}", rev_reg);

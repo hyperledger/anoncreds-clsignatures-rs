@@ -327,12 +327,8 @@ impl Prover {
                key_correctness_proof
         );
 
-        let correctness_names: HashSet<&String> = HashSet::from_iter(
-            key_correctness_proof
-                .xr_cap
-                .iter()
-                .map(|(key, _v)| key),
-        );
+        let correctness_names: HashSet<&String> =
+            HashSet::from_iter(key_correctness_proof.xr_cap.iter().map(|(key, _v)| key));
         for r_key in pr_pub_key.r.keys() {
             if !correctness_names.contains(r_key) {
                 //V1 didn't include "master_secret" in the correctness proof

@@ -650,6 +650,10 @@ impl Prover {
         trace!("Prover::_process_non_revocation_credential: >>> r_cred: {:?}, vr_prime: {:?}, cred_rev_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}",
                r_cred, vr_prime, cred_rev_pub_key, rev_reg, rev_key_pub);
 
+        if r_cred.i == 0 {
+            return Err(err_msg!("Invalid revocation index"));
+        }
+
         let r_cnxt_m2 = BigNumber::from_bytes(&r_cred.m2.to_bytes()?)?;
         r_cred.vr_prime_prime = vr_prime.add_mod(&r_cred.vr_prime_prime)?;
         Prover::_test_witness_signature(

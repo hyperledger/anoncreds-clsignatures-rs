@@ -1341,6 +1341,10 @@ impl Issuer {
                secret!(rev_idx), secret!(cred_context), blinded_credential_secrets, cred_pub_key, secret!(cred_priv_key), max_cred_num,
                issuance_by_default, rev_reg, secret!(rev_key_priv));
 
+        if rev_idx == 0 || rev_idx > max_cred_num {
+            return Err(err_msg!("Revocation index is outside of valid range"));
+        }
+
         let ur = blinded_credential_secrets
             .ur
             .ok_or_else(|| err_msg!("No revocation part present in blinded master secret."))?;

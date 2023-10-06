@@ -914,6 +914,10 @@ impl Witness {
         trace!("Witness::new: >>> rev_idx: {:?}, max_cred_num: {:?}, issuance_by_default: {:?}, rev_reg_delta: {:?}",
                rev_idx, max_cred_num, issuance_by_default, rev_reg_delta);
 
+        if rev_idx == 0 || rev_idx > max_cred_num {
+            return Err(err_msg!("Revocation index is outside of valid range"));
+        }
+
         let mut omega = PointG2::new_inf()?;
 
         let mut issued = Self::issued_indices(max_cred_num, issuance_by_default, rev_reg_delta);
@@ -952,6 +956,10 @@ impl Witness {
             rev_reg_delta
         );
 
+        if rev_idx == 0 || rev_idx > max_cred_num {
+            return Err(err_msg!("Revocation index is outside of valid range"));
+        }
+
         let mut indexes = BTreeMap::new();
         for j in rev_reg_delta.issued.iter() {
             indexes.insert(*j, true);
@@ -962,7 +970,7 @@ impl Witness {
 
         let mut new_omega = self.omega.0;
         for (j, add) in indexes.into_iter().rev() {
-            if rev_idx == j {
+            if rev_idx == 0 || rev_idx == j || rev_idx > max_cred_num {
                 continue;
             }
             let index = max_cred_num + 1 - j + rev_idx;

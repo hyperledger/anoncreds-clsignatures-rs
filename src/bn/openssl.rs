@@ -34,7 +34,7 @@ impl BigNumber {
     }
 
     pub fn new() -> ClResult<BigNumber> {
-        let bn = BigNum::new()?;
+        let bn = BigNum::new_secure()?;
         Ok(BigNumber { openssl_bn: bn })
     }
 

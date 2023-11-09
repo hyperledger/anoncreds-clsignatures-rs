@@ -825,7 +825,7 @@ impl SimpleTailsAccessor {
 
 /// Issuer's signature over Credential attribute values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CredentialSignature {
     pub(crate) p_credential: PrimaryCredentialSignature,
     pub(crate) r_credential: Option<NonRevocationCredentialSignature>, /* will be used to proof is credential revoked preparation */
@@ -867,7 +867,7 @@ impl PrimaryCredentialSignature {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct NonRevocationCredentialSignature {
     pub(crate) sigma: PointG1,
     pub(crate) c: GroupOrderElement,
@@ -1007,7 +1007,7 @@ impl Witness {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct WitnessSignature {
     pub(crate) sigma_i: PointG2,
     pub(crate) u_i: PointG2,
@@ -1235,7 +1235,7 @@ pub enum PredicateType {
 #[derive(Debug)]
 pub struct Proof {
     pub proofs: Vec<SubProof>,
-    pub(crate) aggregated_proof: AggregatedProof,
+    pub aggregated_proof: AggregatedProof,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

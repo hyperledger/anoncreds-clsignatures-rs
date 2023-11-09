@@ -28,5 +28,5 @@ pub use {
     self::issuer::Issuer,
     self::prover::{ProofBuilder, Prover},
     self::types::*,
-    self::verifier::Verifier,
+    self::verifier::{ProofVerifier, Verifier},
 };

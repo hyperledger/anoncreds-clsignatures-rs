@@ -528,7 +528,18 @@ impl BigNumber {
     }
 
     pub fn random_qr(n: &BigNumber) -> ClResult<BigNumber> {
-        let qr = n.rand_range()?.sqr(None)?.modulus(n, None)?;
+        
+        let mut sqr_candidate = n.rand_range()?;
+        let big_one = BigNumber::from_u32(1)?;
+
+        // Number sqr_candidate to square must be between 1 and n-1 and
+        // have gcd(sqr_candidate,n)=1
+        while Self::gcd(&sqr_candidate, n, None)? != big_one {
+                sqr_candidate = n.rand_range()?;
+        }
+
+        let qr = sqr_candidate.sqr(None)?.modulus(n, None)?;
+
         Ok(qr)
     }
 

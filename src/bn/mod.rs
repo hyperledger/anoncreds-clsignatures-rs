@@ -282,6 +282,40 @@ mod tests {
         assert_eq!(num.lshift1().unwrap(), BigNumber::from_u32(2000).unwrap());
     }
 
+    #[test]
+    fn generates_semiprime_subgroup_works() {
+        let p_prime = BigNumber::from_dec("9056990664109556783").unwrap();
+        let q_prime = BigNumber::from_dec("7256373851099466689").unwrap();
+
+        // n = (2 * p' + 1) * (2 * q' + 1)
+        let n = BigNumber::from_dec("262883640898786323684721809348268052893").unwrap();
+
+        // Since n is a safe RSA modulus, the group of invertible
+        // quadratic residues QR*_n has order p'*q'
+
+        // 4 = 2^2 so it is a quadratic residue mod n, and it is
+        // invertible mod n since 4 is coprime with n.  Its order in
+        // QR*_n is not 1, p' or q' (can check with WolframAlpha), so
+        // it must be p'*q' by Lagrange and hence it is primitive in
+        // QR*_n.
+        let mut a = BigNumber::from_dec("4").unwrap();
+        assert_eq!(
+            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n),
+            Ok(true)
+        );
+
+        // 4^q' = (+-(2^q'))^2 so it is a quadratic residue mod n, and
+        // it is invertible mod n since 4 is coprime with n. Its order
+        // in QR*_n is not 1, and is at most p' since (4^q')^p' =
+        // 4^(p'*q') = 1, so its order must be p' by Lagrange and
+        // hence it is not primitive in QR*_n
+        a = BigNumber::from_dec("83826306846185295424745260846198095936").unwrap();
+        assert_eq!(
+            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n),
+            Ok(false)
+        );
+    }
+
     #[cfg(feature = "serde")]
     #[derive(Serialize, Deserialize)]
     struct Test {

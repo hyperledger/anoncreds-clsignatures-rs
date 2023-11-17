@@ -844,7 +844,11 @@ impl Issuer {
         let q = q_safe.rshift1()?;
 
         let n = p_safe.mul(&q_safe, Some(&mut ctx))?;
-        let s = random_qr(&n)?;
+        let mut s = random_qr(&n)?;
+        while !s.generates_semiprime_subgroup(&p, &q, &n)? {
+            s = random_qr(&n)?;
+        }
+
         let xz = gen_x(&p, &q)?;
 
         let mut xr = HashMap::new();

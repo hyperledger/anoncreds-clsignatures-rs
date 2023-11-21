@@ -1,6 +1,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use serde::de::Error;
+use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 use std::iter::FromIterator;
@@ -577,24 +579,9 @@ impl From<&RevocationRegistry> for RevocationRegistryDelta {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RevocationRegistryDelta {
-    #[cfg_attr(
-        feature = "serde",
-        serde(default),
-        serde(skip_serializing_if = "Option::is_none")
-    )]
     pub(crate) prev_accum: Option<Accumulator>,
     pub(crate) accum: Accumulator,
-    #[cfg_attr(
-        feature = "serde",
-        serde(default),
-        serde(skip_serializing_if = "HashSet::is_empty")
-    )]
     pub(crate) issued: HashSet<u32>,
-    #[cfg_attr(
-        feature = "serde",
-        serde(default),
-        serde(skip_serializing_if = "HashSet::is_empty")
-    )]
     pub(crate) revoked: HashSet<u32>,
 }
 
@@ -1241,7 +1228,7 @@ pub struct Proof {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct SubProof {
-    pub(crate) primary_proof: PrimaryProof,
+    pub primary_proof: PrimaryProof,
     pub(crate) non_revoc_proof: Option<NonRevocProof>,
 }
 
@@ -1296,18 +1283,46 @@ impl<'a> ::serde::de::Deserialize<'a> for PrimaryEqualProof {
             m2: BigNumber,
         }
 
-        let mut helper = PrimaryEqualProofV1::deserialize(deserializer)?;
-        if helper.m1 != BigNumber::default() {
-            helper.m.insert("master_secret".to_string(), helper.m1);
+        #[derive(Deserialize)]
+        struct PrimaryEqualProofV0 {
+            revealed_attrs: BTreeMap<String /* attr_name of revealed */, BigNumber>,
+            a_prime: BigNumber,
+            e: BigNumber,
+            v: BigNumber,
+            m: HashMap<String /* attr_name of all except revealed */, BigNumber>,
+            m2: BigNumber,
         }
-        Ok(PrimaryEqualProof {
-            revealed_attrs: helper.revealed_attrs,
-            a_prime: helper.a_prime,
-            e: helper.e,
-            v: helper.v,
-            m: helper.m,
-            m2: helper.m2,
-        })
+
+        let value = Value::deserialize(deserializer).map_err(D::Error::custom)?;
+        match value.get("m1") {
+            Some(_) => {
+                let mut helper: PrimaryEqualProofV1 =
+                    serde_json::from_value(value).map_err(D::Error::custom)?;
+                if helper.m1 != BigNumber::default() {
+                    helper.m.insert("master_secret".to_string(), helper.m1);
+                }
+                Ok(PrimaryEqualProof {
+                    revealed_attrs: helper.revealed_attrs,
+                    a_prime: helper.a_prime,
+                    e: helper.e,
+                    v: helper.v,
+                    m: helper.m,
+                    m2: helper.m2,
+                })
+            }
+            None => {
+                let helper: PrimaryEqualProofV0 =
+                    serde_json::from_value(value).map_err(D::Error::custom)?;
+                Ok(PrimaryEqualProof {
+                    revealed_attrs: helper.revealed_attrs,
+                    a_prime: helper.a_prime,
+                    e: helper.e,
+                    v: helper.v,
+                    m: helper.m,
+                    m2: helper.m2,
+                })
+            }
+        }
     }
 }
 
@@ -1443,7 +1458,6 @@ pub struct NonRevocProofXList {
     pub(crate) m_prime: GroupOrderElement,
     pub(crate) t: GroupOrderElement,
     pub(crate) t_prime: GroupOrderElement,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub(crate) m2: Option<GroupOrderElement>,
     pub(crate) s: GroupOrderElement,
     pub(crate) c: GroupOrderElement,

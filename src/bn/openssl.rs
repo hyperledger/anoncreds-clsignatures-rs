@@ -5,8 +5,9 @@ use std::fmt;
 use openssl::bn::{BigNum, BigNumContext, BigNumRef, MsbOption};
 use openssl::error::ErrorStack;
 
+use crate::amcl::CryptoVisitor;
 #[cfg(feature = "serde")]
-use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error as ClError, Result as ClResult};
 
@@ -577,10 +578,21 @@ impl Serialize for BigNumber {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct(
-            "BigNumber",
-            &self.to_dec().map_err(serde::ser::Error::custom)?,
-        )
+        // FIXME: NEED to figure out how to make this `if` condition based on the some parameter rather than on feature flag
+        //  Why it is needed:
+        //  JSON string serialization - BigNumber must be encoded as decimal string
+        //  Message Pack serialization - BigNumber must be encpded as bytes
+        if cfg!(feature = "bytes_serialization") {
+            serializer.serialize_newtype_struct(
+                "BigNumber",
+                &self.to_bytes().map_err(serde::ser::Error::custom)?,
+            )
+        } else {
+            serializer.serialize_newtype_struct(
+                "BigNumber",
+                &self.to_dec().map_err(serde::ser::Error::custom)?,
+            )
+        }
     }
 }
 
@@ -590,24 +602,7 @@ impl<'a> Deserialize<'a> for BigNumber {
     where
         D: Deserializer<'a>,
     {
-        struct BigNumberVisitor;
-
-        impl<'a> Visitor<'a> for BigNumberVisitor {
-            type Value = BigNumber;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str("expected BigNumber")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<BigNumber, E>
-            where
-                E: serde::de::Error,
-            {
-                BigNumber::from_dec(value).map_err(E::custom)
-            }
-        }
-
-        deserializer.deserialize_str(BigNumberVisitor)
+        deserializer.deserialize_any(CryptoVisitor("BigNumber", Self::from_dec, Self::from_bytes))
     }
 }
 

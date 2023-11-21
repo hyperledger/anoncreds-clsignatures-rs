@@ -11,19 +11,16 @@ use amcl::rand::RAND;
 use std::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
-use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-
-#[cfg(feature = "serde")]
-use serde_json::Value;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use rand::prelude::*;
 
-use serde::de::{Error, SeqAccess};
 #[cfg(test)]
 use std::cell::RefCell;
 
 use crate::bn::BigNumber;
 use crate::error::Result as ClResult;
+use crate::serialization::CryptoPrimitiveVisitor;
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
 
@@ -214,17 +211,10 @@ impl Serialize for PointG1 {
     where
         S: Serializer,
     {
-        if cfg!(feature = "bytes_serialization") {
-            serializer.serialize_newtype_struct(
-                "PointG1",
-                &self.to_bytes().map_err(serde::ser::Error::custom)?,
-            )
-        } else {
-            serializer.serialize_newtype_struct(
-                "PointG1",
-                &self.to_string().map_err(serde::ser::Error::custom)?,
-            )
-        }
+        serializer.serialize_newtype_struct(
+            "PointG1",
+            &self.to_string().map_err(serde::ser::Error::custom)?,
+        )
     }
 }
 
@@ -234,7 +224,7 @@ impl<'a> Deserialize<'a> for PointG1 {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_any(CryptoVisitor(
+        deserializer.deserialize_any(CryptoPrimitiveVisitor(
             "PointG1",
             Self::from_string,
             Self::from_bytes,
@@ -364,17 +354,10 @@ impl Serialize for PointG2 {
     where
         S: Serializer,
     {
-        if cfg!(feature = "bytes_serialization") {
-            serializer.serialize_newtype_struct(
-                "PointG2",
-                &self.to_bytes().map_err(serde::ser::Error::custom)?,
-            )
-        } else {
-            serializer.serialize_newtype_struct(
-                "PointG2",
-                &self.to_string().map_err(serde::ser::Error::custom)?,
-            )
-        }
+        serializer.serialize_newtype_struct(
+            "PointG2",
+            &self.to_string().map_err(serde::ser::Error::custom)?,
+        )
     }
 }
 
@@ -384,7 +367,7 @@ impl<'a> Deserialize<'a> for PointG2 {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_any(CryptoVisitor(
+        deserializer.deserialize_any(CryptoPrimitiveVisitor(
             "PointG2",
             Self::from_string,
             Self::from_bytes,
@@ -439,11 +422,9 @@ impl<'de> Deserialize<'de> for PointG2Inf {
     where
         D: Deserializer<'de>,
     {
-        Ok(Self(deserializer.deserialize_any(CryptoVisitor(
-            "PointG2Inf",
-            PointG2::from_string_inf,
-            PointG2::from_bytes,
-        ))?))
+        Ok(Self(deserializer.deserialize_any(
+            CryptoPrimitiveVisitor("PointG2Inf", PointG2::from_string_inf, PointG2::from_bytes),
+        )?))
     }
 }
 
@@ -591,17 +572,10 @@ impl Serialize for GroupOrderElement {
     where
         S: Serializer,
     {
-        if cfg!(feature = "bytes_serialization") {
-            serializer.serialize_newtype_struct(
-                "GroupOrderElement",
-                &self.to_bytes().map_err(serde::ser::Error::custom)?,
-            )
-        } else {
-            serializer.serialize_newtype_struct(
-                "GroupOrderElement",
-                &self.to_string().map_err(serde::ser::Error::custom)?,
-            )
-        }
+        serializer.serialize_newtype_struct(
+            "GroupOrderElement",
+            &self.to_string().map_err(serde::ser::Error::custom)?,
+        )
     }
 }
 
@@ -611,7 +585,7 @@ impl<'a> Deserialize<'a> for GroupOrderElement {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_any(CryptoVisitor(
+        deserializer.deserialize_any(CryptoPrimitiveVisitor(
             "GroupOrderElement",
             Self::from_string,
             Self::from_bytes,
@@ -720,17 +694,10 @@ impl Serialize for Pair {
     where
         S: Serializer,
     {
-        if cfg!(feature = "bytes_serialization") {
-            serializer.serialize_newtype_struct(
-                "Pair",
-                &self.to_bytes().map_err(serde::ser::Error::custom)?,
-            )
-        } else {
-            serializer.serialize_newtype_struct(
-                "Pair",
-                &self.to_string().map_err(serde::ser::Error::custom)?,
-            )
-        }
+        serializer.serialize_newtype_struct(
+            "Pair",
+            &self.to_string().map_err(serde::ser::Error::custom)?,
+        )
     }
 }
 
@@ -740,7 +707,11 @@ impl<'a> Deserialize<'a> for Pair {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_any(CryptoVisitor("Pair", Self::from_string, Self::from_bytes))
+        deserializer.deserialize_any(CryptoPrimitiveVisitor(
+            "Pair",
+            Self::from_string,
+            Self::from_bytes,
+        ))
     }
 }
 
@@ -847,47 +818,6 @@ fn is_valid_pair(point: &FP12) -> bool {
     rhs.frob(&f);
     rhs.mul(point);
     lhs.equals(&rhs)
-}
-
-#[cfg(feature = "serde")]
-#[derive(Debug)]
-pub(crate) struct CryptoVisitor<FromString, FromBytes>(
-    pub &'static str,
-    pub FromString,
-    pub FromBytes,
-);
-
-#[cfg(feature = "serde")]
-impl<'d, FromString, FromBytes, T> Visitor<'d> for CryptoVisitor<FromString, FromBytes>
-where
-    FromString: FnOnce(&str) -> ClResult<T>,
-    FromBytes: FnOnce(&[u8]) -> ClResult<T>,
-{
-    type Value = T;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.0)
-    }
-
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        self.1(value).map_err(E::custom)
-    }
-
-    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
-    where
-        V: SeqAccess<'d>,
-    {
-        let mut vec = Vec::new();
-
-        while let Ok(Some(Value::Number(elem))) = visitor.next_element() {
-            vec.push(elem.as_u64().unwrap() as u8);
-        }
-
-        self.2(&vec).map_err(V::Error::custom)
-    }
 }
 
 #[cfg(test)]

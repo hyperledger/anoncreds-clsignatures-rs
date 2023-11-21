@@ -382,6 +382,32 @@ impl BigNumber {
         self.mul(&b.inverse(&p, None)?, None)?.modulus(&p, None)
     }
 
+    pub fn generates_semiprime_subgroup(
+        &self,
+        p_prime: &BigNumber,
+        q_prime: &BigNumber,
+        n: &BigNumber,
+    ) -> ClResult<bool> {
+        // Returns true if and only if self is a generator for a
+        // multiplicative subgroup of the integers mod n of order
+        // p'*q' where n = (2p' + 1) * (2q' + 1)
+
+        // Can be used to check if an invertible quadratic residue of
+        // an RSA modulus n is a generator for the whole group of
+        // invertible quadratic residues mod n
+
+        let big_one = BigNumber::from_u32(1)?;
+
+        if self == &big_one
+            || self.mod_exp(p_prime, &n, None)? == big_one
+            || self.mod_exp(q_prime, &n, None)? == big_one
+        {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
     pub fn random_qr(n: &BigNumber) -> ClResult<BigNumber> {
         let qr = n.rand_range()?.sqr(None)?.modulus(&n, None)?;
         Ok(qr)

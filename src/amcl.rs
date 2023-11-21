@@ -13,8 +13,12 @@ use std::fmt::{self, Debug, Formatter};
 #[cfg(feature = "serde")]
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
+#[cfg(feature = "serde")]
+use serde_json::Value;
+
 use rand::prelude::*;
 
+use serde::de::{Error, SeqAccess};
 #[cfg(test)]
 use std::cell::RefCell;
 
@@ -210,10 +214,17 @@ impl Serialize for PointG1 {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct(
-            "PointG1",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+        if cfg!(feature = "bytes_serialization") {
+            serializer.serialize_newtype_struct(
+                "PointG1",
+                &self.to_bytes().map_err(serde::ser::Error::custom)?,
+            )
+        } else {
+            serializer.serialize_newtype_struct(
+                "PointG1",
+                &self.to_string().map_err(serde::ser::Error::custom)?,
+            )
+        }
     }
 }
 
@@ -223,7 +234,11 @@ impl<'a> Deserialize<'a> for PointG1 {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_str(StrVisitor("expected PointG1", Self::from_string))
+        deserializer.deserialize_any(CryptoVisitor(
+            "PointG1",
+            Self::from_string,
+            Self::from_bytes,
+        ))
     }
 }
 
@@ -349,10 +364,17 @@ impl Serialize for PointG2 {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct(
-            "PointG2",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+        if cfg!(feature = "bytes_serialization") {
+            serializer.serialize_newtype_struct(
+                "PointG2",
+                &self.to_bytes().map_err(serde::ser::Error::custom)?,
+            )
+        } else {
+            serializer.serialize_newtype_struct(
+                "PointG2",
+                &self.to_string().map_err(serde::ser::Error::custom)?,
+            )
+        }
     }
 }
 
@@ -362,7 +384,11 @@ impl<'a> Deserialize<'a> for PointG2 {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_str(StrVisitor("expected PointG2", Self::from_string))
+        deserializer.deserialize_any(CryptoVisitor(
+            "PointG2",
+            Self::from_string,
+            Self::from_bytes,
+        ))
     }
 }
 
@@ -413,9 +439,10 @@ impl<'de> Deserialize<'de> for PointG2Inf {
     where
         D: Deserializer<'de>,
     {
-        Ok(Self(deserializer.deserialize_str(StrVisitor(
-            "expected PointG2",
+        Ok(Self(deserializer.deserialize_any(CryptoVisitor(
+            "PointG2Inf",
             PointG2::from_string_inf,
+            PointG2::from_bytes,
         ))?))
     }
 }
@@ -564,10 +591,17 @@ impl Serialize for GroupOrderElement {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct(
-            "GroupOrderElement",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+        if cfg!(feature = "bytes_serialization") {
+            serializer.serialize_newtype_struct(
+                "GroupOrderElement",
+                &self.to_bytes().map_err(serde::ser::Error::custom)?,
+            )
+        } else {
+            serializer.serialize_newtype_struct(
+                "GroupOrderElement",
+                &self.to_string().map_err(serde::ser::Error::custom)?,
+            )
+        }
     }
 }
 
@@ -577,7 +611,11 @@ impl<'a> Deserialize<'a> for GroupOrderElement {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_str(StrVisitor("expected GroupOrderElement", Self::from_string))
+        deserializer.deserialize_any(CryptoVisitor(
+            "GroupOrderElement",
+            Self::from_string,
+            Self::from_bytes,
+        ))
     }
 }
 
@@ -658,6 +696,16 @@ impl Pair {
         r.tobytes(&mut vec);
         Ok(vec)
     }
+
+    pub fn from_bytes(b: &[u8]) -> ClResult<Self> {
+        if b.len() != Self::BYTES_REPR_SIZE {
+            Err(err_msg!("Invalid byte length for PointG1"))
+        } else {
+            Ok(Pair {
+                pair: FP12::frombytes(b),
+            })
+        }
+    }
 }
 
 impl Debug for Pair {
@@ -672,10 +720,17 @@ impl Serialize for Pair {
     where
         S: Serializer,
     {
-        serializer.serialize_newtype_struct(
-            "Pair",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+        if cfg!(feature = "bytes_serialization") {
+            serializer.serialize_newtype_struct(
+                "Pair",
+                &self.to_bytes().map_err(serde::ser::Error::custom)?,
+            )
+        } else {
+            serializer.serialize_newtype_struct(
+                "Pair",
+                &self.to_string().map_err(serde::ser::Error::custom)?,
+            )
+        }
     }
 }
 
@@ -685,7 +740,7 @@ impl<'a> Deserialize<'a> for Pair {
     where
         D: Deserializer<'a>,
     {
-        deserializer.deserialize_str(StrVisitor("expected Pair", Self::from_string))
+        deserializer.deserialize_any(CryptoVisitor("Pair", Self::from_string, Self::from_bytes))
     }
 }
 
@@ -796,12 +851,17 @@ fn is_valid_pair(point: &FP12) -> bool {
 
 #[cfg(feature = "serde")]
 #[derive(Debug)]
-pub(crate) struct StrVisitor<F>(pub &'static str, pub F);
+pub(crate) struct CryptoVisitor<FromString, FromBytes>(
+    pub &'static str,
+    pub FromString,
+    pub FromBytes,
+);
 
 #[cfg(feature = "serde")]
-impl<'d, F, T> Visitor<'d> for StrVisitor<F>
+impl<'d, FromString, FromBytes, T> Visitor<'d> for CryptoVisitor<FromString, FromBytes>
 where
-    F: FnOnce(&str) -> ClResult<T>,
+    FromString: FnOnce(&str) -> ClResult<T>,
+    FromBytes: FnOnce(&[u8]) -> ClResult<T>,
 {
     type Value = T;
 
@@ -814,6 +874,19 @@ where
         E: serde::de::Error,
     {
         self.1(value).map_err(E::custom)
+    }
+
+    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
+    where
+        V: SeqAccess<'d>,
+    {
+        let mut vec = Vec::new();
+
+        while let Ok(Some(Value::Number(elem))) = visitor.next_element() {
+            vec.push(elem.as_u64().unwrap() as u8);
+        }
+
+        self.2(&vec).map_err(V::Error::custom)
     }
 }
 

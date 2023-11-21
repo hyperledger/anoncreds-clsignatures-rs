@@ -579,9 +579,24 @@ impl From<&RevocationRegistry> for RevocationRegistryDelta {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RevocationRegistryDelta {
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "Option::is_none")
+    )]
     pub(crate) prev_accum: Option<Accumulator>,
     pub(crate) accum: Accumulator,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "HashSet::is_empty")
+    )]
     pub(crate) issued: HashSet<u32>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default),
+        serde(skip_serializing_if = "HashSet::is_empty")
+    )]
     pub(crate) revoked: HashSet<u32>,
 }
 
@@ -1228,7 +1243,7 @@ pub struct Proof {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug)]
 pub struct SubProof {
-    pub primary_proof: PrimaryProof,
+    pub(crate) primary_proof: PrimaryProof,
     pub(crate) non_revoc_proof: Option<NonRevocProof>,
 }
 
@@ -1458,6 +1473,7 @@ pub struct NonRevocProofXList {
     pub(crate) m_prime: GroupOrderElement,
     pub(crate) t: GroupOrderElement,
     pub(crate) t_prime: GroupOrderElement,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub(crate) m2: Option<GroupOrderElement>,
     pub(crate) s: GroupOrderElement,
     pub(crate) c: GroupOrderElement,

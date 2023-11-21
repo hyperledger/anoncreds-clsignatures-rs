@@ -14,11 +14,10 @@ rust-version = "1.63"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["serialization", "openssl_bn"]
+default = ["serde", "serde_json", "openssl_bn"]
 openssl_bn = ["openssl"]
 openssl_vendored = ["openssl_bn", "openssl/vendored"]
-serialization = ["serde", "serde_json"]
-bytes_serialization = []
+type_extensions = []
 
 [dependencies]
 amcl = "0.2"

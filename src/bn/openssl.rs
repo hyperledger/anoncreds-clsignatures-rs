@@ -5,9 +5,12 @@ use std::fmt;
 use openssl::bn::{BigNum, BigNumContext, BigNumRef, MsbOption};
 use openssl::error::ErrorStack;
 
-use crate::serialization::CryptoPrimitiveVisitor;
+#[cfg(feature = "serde")]
+use crate::serialization::{deserialize_crypto_primitive, SerializableCryptoPrimitive, serialize_crypto_primitive};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "serde")]
+use crate::serializable_crypto_primitive;
 
 use crate::error::{Error as ClError, Result as ClResult};
 
@@ -599,31 +602,30 @@ impl PartialEq for BigNumber {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for BigNumber {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            "BigNumber",
-            &self.to_dec().map_err(serde::ser::Error::custom)?,
-        )
+impl SerializableCryptoPrimitive for BigNumber {
+    fn name() -> &'static str {
+        "BigNumber"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_dec()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        BigNumber::from_dec(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        BigNumber::from_bytes(value)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Deserialize<'a> for BigNumber {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        deserializer.deserialize_any(CryptoPrimitiveVisitor(
-            "BigNumber",
-            Self::from_dec,
-            Self::from_bytes,
-        ))
-    }
-}
+serializable_crypto_primitive!(BigNumber);
 
 impl From<ErrorStack> for ClError {
     fn from(err: ErrorStack) -> Self {

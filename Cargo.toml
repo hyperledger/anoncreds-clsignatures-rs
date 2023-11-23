@@ -17,7 +17,6 @@ crate-type = ["cdylib", "rlib"]
 default = ["serde", "serde_json", "openssl_bn"]
 openssl_bn = ["openssl"]
 openssl_vendored = ["openssl_bn", "openssl/vendored"]
-type_extensions = []
 
 [dependencies]
 amcl = "0.2"
@@ -32,6 +31,9 @@ rand = "0.8"
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_json = { version = "1", optional = true }
 sha2 = "0.10"
+
+[dev-dependencies]
+rmp-serde = { version = "1.1.2" }
 
 [[bench]]
 name = "cl"

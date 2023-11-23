@@ -1,8 +1,8 @@
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
-use serde::de::Error;
+use serde::{Deserialize, Serialize, de::Error};
+#[cfg(feature = "serde")]
 use serde_json::Value;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 use std::iter::FromIterator;
@@ -880,12 +880,15 @@ pub struct NonRevocationCredentialSignature {
     pub(crate) m2: GroupOrderElement,
 }
 
+
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignatureCorrectnessProof {
     pub(crate) se: BigNumber,
     pub(crate) c: BigNumber,
 }
+
+
 
 impl SignatureCorrectnessProof {
     pub fn try_clone(&self) -> ClResult<SignatureCorrectnessProof> {

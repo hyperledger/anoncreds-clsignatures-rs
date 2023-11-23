@@ -11,20 +11,19 @@ mod error;
 mod macros;
 #[macro_use]
 mod helpers;
+#[cfg(feature = "serde")]
+#[macro_use]
+mod serialization;
 
 mod amcl;
 mod constants;
 mod hash;
 mod issuer;
 mod prover;
-mod serialization;
 mod verifier;
 
 pub mod bn;
 mod types;
-
-#[cfg(all(feature = "serde", feature = "type_extensions"))]
-mod types_extension;
 
 pub use {
     self::error::{Error, ErrorKind},
@@ -34,6 +33,3 @@ pub use {
     self::types::*,
     self::verifier::{ProofVerifier, Verifier},
 };
-
-#[cfg(all(feature = "serde", feature = "type_extensions"))]
-pub use self::types_extension::*;

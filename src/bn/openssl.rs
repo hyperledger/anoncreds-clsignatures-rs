@@ -6,11 +6,13 @@ use openssl::bn::{BigNum, BigNumContext, BigNumRef, MsbOption};
 use openssl::error::ErrorStack;
 
 #[cfg(feature = "serde")]
-use crate::serialization::{deserialize_crypto_primitive, SerializableCryptoPrimitive, serialize_crypto_primitive};
+use crate::serializable_crypto_primitive;
+#[cfg(feature = "serde")]
+use crate::serialization::{
+    deserialize_crypto_primitive, serialize_crypto_primitive, SerializableCryptoPrimitive,
+};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(feature = "serde")]
-use crate::serializable_crypto_primitive;
 
 use crate::error::{Error as ClError, Result as ClResult};
 

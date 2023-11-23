@@ -14,7 +14,7 @@ rust-version = "1.63"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["serde", "serde_json", "openssl_bn"]
+default = ["serde", "openssl_bn"]
 openssl_bn = ["openssl"]
 openssl_vendored = ["openssl_bn", "openssl/vendored"]
 
@@ -29,11 +29,11 @@ once_cell = "1"
 openssl = { version = "0.10", optional = true }
 rand = "0.8"
 serde = { version = "1", optional = true, features = ["derive"] }
-serde_json = { version = "1", optional = true }
 sha2 = "0.10"
 
 [dev-dependencies]
-rmp-serde = { version = "1.1.2" }
+serde_json = "1"
+rmp-serde = "1"
 
 [[bench]]
 name = "cl"

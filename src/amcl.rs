@@ -11,9 +11,11 @@ use amcl::rand::RAND;
 use std::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use crate::serialization::{
+    deserialize_crypto_primitive, serialize_crypto_primitive, SerializableCryptoPrimitive,
+};
 #[cfg(feature = "serde")]
-use crate::serialization::{deserialize_crypto_primitive, SerializableCryptoPrimitive, serialize_crypto_primitive};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use rand::prelude::*;
 
@@ -22,7 +24,6 @@ use std::cell::RefCell;
 
 use crate::bn::BigNumber;
 use crate::error::Result as ClResult;
-
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
 
@@ -376,7 +377,6 @@ impl SerializableCryptoPrimitive for PointG2 {
 serializable_crypto_primitive!(PointG2);
 
 /// A wrapper type to allow deserialization of the infinity point
-#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct PointG2Inf(pub PointG2);
 
@@ -398,9 +398,17 @@ impl PointG2Inf {
         self.0.to_string()
     }
 
+    pub fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.0.to_bytes()
+    }
+
     /// Decode from hexadecimal format
     pub fn from_string(val: &str) -> ClResult<Self> {
         Ok(Self(PointG2::from_string_inf(val)?))
+    }
+
+    pub fn from_bytes(val: &[u8]) -> ClResult<Self> {
+        Ok(Self(PointG2::from_bytes(val)?))
     }
 }
 
@@ -417,15 +425,30 @@ impl From<PointG2Inf> for PointG2 {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for PointG2Inf {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let point: PointG2 = deserialize_crypto_primitive(deserializer)?;
-        Ok(Self(point))
+impl SerializableCryptoPrimitive for PointG2Inf {
+    fn name() -> &'static str {
+        "PointG1"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_string()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        PointG2Inf::from_string(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        PointG2Inf::from_bytes(value)
     }
 }
+
+#[cfg(feature = "serde")]
+serializable_crypto_primitive!(PointG2Inf);
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct GroupOrderElement {

@@ -1,7 +1,5 @@
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize, de::Error};
-#[cfg(feature = "serde")]
-use serde_json::Value;
+use serde::{Deserialize, Serialize};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
@@ -880,15 +878,12 @@ pub struct NonRevocationCredentialSignature {
     pub(crate) m2: GroupOrderElement,
 }
 
-
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignatureCorrectnessProof {
     pub(crate) se: BigNumber,
     pub(crate) c: BigNumber,
 }
-
-
 
 impl SignatureCorrectnessProof {
     pub fn try_clone(&self) -> ClResult<SignatureCorrectnessProof> {
@@ -1301,46 +1296,18 @@ impl<'a> ::serde::de::Deserialize<'a> for PrimaryEqualProof {
             m2: BigNumber,
         }
 
-        #[derive(Deserialize)]
-        struct PrimaryEqualProofV0 {
-            revealed_attrs: BTreeMap<String /* attr_name of revealed */, BigNumber>,
-            a_prime: BigNumber,
-            e: BigNumber,
-            v: BigNumber,
-            m: HashMap<String /* attr_name of all except revealed */, BigNumber>,
-            m2: BigNumber,
+        let mut helper = PrimaryEqualProofV1::deserialize(deserializer)?;
+        if helper.m1 != BigNumber::default() {
+            helper.m.insert("master_secret".to_string(), helper.m1);
         }
-
-        let value = Value::deserialize(deserializer).map_err(D::Error::custom)?;
-        match value.get("m1") {
-            Some(_) => {
-                let mut helper: PrimaryEqualProofV1 =
-                    serde_json::from_value(value).map_err(D::Error::custom)?;
-                if helper.m1 != BigNumber::default() {
-                    helper.m.insert("master_secret".to_string(), helper.m1);
-                }
-                Ok(PrimaryEqualProof {
-                    revealed_attrs: helper.revealed_attrs,
-                    a_prime: helper.a_prime,
-                    e: helper.e,
-                    v: helper.v,
-                    m: helper.m,
-                    m2: helper.m2,
-                })
-            }
-            None => {
-                let helper: PrimaryEqualProofV0 =
-                    serde_json::from_value(value).map_err(D::Error::custom)?;
-                Ok(PrimaryEqualProof {
-                    revealed_attrs: helper.revealed_attrs,
-                    a_prime: helper.a_prime,
-                    e: helper.e,
-                    v: helper.v,
-                    m: helper.m,
-                    m2: helper.m2,
-                })
-            }
-        }
+        Ok(PrimaryEqualProof {
+            revealed_attrs: helper.revealed_attrs,
+            a_prime: helper.a_prime,
+            e: helper.e,
+            v: helper.v,
+            m: helper.m,
+            m2: helper.m2,
+        })
     }
 }
 

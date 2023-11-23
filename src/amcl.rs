@@ -12,6 +12,8 @@ use std::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "serde")]
+use crate::serialization::{deserialize_crypto_primitive, SerializableCryptoPrimitive, serialize_crypto_primitive};
 
 use rand::prelude::*;
 
@@ -20,7 +22,7 @@ use std::cell::RefCell;
 
 use crate::bn::BigNumber;
 use crate::error::Result as ClResult;
-use crate::serialization::CryptoPrimitiveVisitor;
+
 
 const ORDER: BIG = BIG { w: CURVE_ORDER };
 
@@ -206,31 +208,30 @@ impl Debug for PointG1 {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for PointG1 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            "PointG1",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+impl SerializableCryptoPrimitive for PointG1 {
+    fn name() -> &'static str {
+        "PointG1"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_string()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        PointG1::from_string(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        PointG1::from_bytes(value)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Deserialize<'a> for PointG1 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        deserializer.deserialize_any(CryptoPrimitiveVisitor(
-            "PointG1",
-            Self::from_string,
-            Self::from_bytes,
-        ))
-    }
-}
+serializable_crypto_primitive!(PointG1);
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct PointG2 {
@@ -349,31 +350,30 @@ impl Debug for PointG2 {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for PointG2 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            "PointG2",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+impl SerializableCryptoPrimitive for PointG2 {
+    fn name() -> &'static str {
+        "PointG2"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_string()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        PointG2::from_string(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        PointG2::from_bytes(value)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Deserialize<'a> for PointG2 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        deserializer.deserialize_any(CryptoPrimitiveVisitor(
-            "PointG2",
-            Self::from_string,
-            Self::from_bytes,
-        ))
-    }
-}
+serializable_crypto_primitive!(PointG2);
 
 /// A wrapper type to allow deserialization of the infinity point
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -422,9 +422,8 @@ impl<'de> Deserialize<'de> for PointG2Inf {
     where
         D: Deserializer<'de>,
     {
-        Ok(Self(deserializer.deserialize_any(
-            CryptoPrimitiveVisitor("PointG2Inf", PointG2::from_string_inf, PointG2::from_bytes),
-        )?))
+        let point: PointG2 = deserialize_crypto_primitive(deserializer)?;
+        Ok(Self(point))
     }
 }
 
@@ -567,31 +566,30 @@ impl Debug for GroupOrderElement {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for GroupOrderElement {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            "GroupOrderElement",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+impl SerializableCryptoPrimitive for GroupOrderElement {
+    fn name() -> &'static str {
+        "GroupOrderElement"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_string()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        GroupOrderElement::from_string(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        GroupOrderElement::from_bytes(value)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Deserialize<'a> for GroupOrderElement {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        deserializer.deserialize_any(CryptoPrimitiveVisitor(
-            "GroupOrderElement",
-            Self::from_string,
-            Self::from_bytes,
-        ))
-    }
-}
+serializable_crypto_primitive!(GroupOrderElement);
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Pair {
@@ -689,31 +687,30 @@ impl Debug for Pair {
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for Pair {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_newtype_struct(
-            "Pair",
-            &self.to_string().map_err(serde::ser::Error::custom)?,
-        )
+impl SerializableCryptoPrimitive for Pair {
+    fn name() -> &'static str {
+        "Pair"
+    }
+
+    fn to_string(&self) -> ClResult<String> {
+        self.to_string()
+    }
+
+    fn to_bytes(&self) -> ClResult<Vec<u8>> {
+        self.to_bytes()
+    }
+
+    fn from_string(value: &str) -> ClResult<Self> {
+        Pair::from_string(value)
+    }
+
+    fn from_bytes(value: &[u8]) -> ClResult<Self> {
+        Pair::from_bytes(value)
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Deserialize<'a> for Pair {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        deserializer.deserialize_any(CryptoPrimitiveVisitor(
-            "Pair",
-            Self::from_string,
-            Self::from_bytes,
-        ))
-    }
-}
+serializable_crypto_primitive!(Pair);
 
 fn pre_validate_point(val: &str, components: usize) -> ClResult<()> {
     let mut parts = val.split_ascii_whitespace();

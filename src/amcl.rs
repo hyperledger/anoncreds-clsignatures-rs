@@ -694,7 +694,7 @@ impl Pair {
 
     pub fn from_bytes(b: &[u8]) -> ClResult<Self> {
         if b.len() != Self::BYTES_REPR_SIZE {
-            Err(err_msg!("Invalid byte length for PointG1"))
+            Err(err_msg!("Invalid byte length for Pair"))
         } else {
             Ok(Pair {
                 pair: FP12::frombytes(b),

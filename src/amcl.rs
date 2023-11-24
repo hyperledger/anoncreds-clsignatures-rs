@@ -427,7 +427,7 @@ impl From<PointG2Inf> for PointG2 {
 #[cfg(feature = "serde")]
 impl SerializableCryptoPrimitive for PointG2Inf {
     fn name() -> &'static str {
-        "PointG1"
+        "PointG2Inf"
     }
 
     fn to_string(&self) -> ClResult<String> {

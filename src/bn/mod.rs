@@ -13,50 +13,107 @@ pub use inner::*;
 pub(crate) static BIGNUMBER_1: Lazy<BigNumber> = Lazy::new(|| BigNumber::from_u32(1).unwrap());
 pub(crate) static BIGNUMBER_2: Lazy<BigNumber> = Lazy::new(|| BigNumber::from_u32(2).unwrap());
 
-pub fn _generate_prime_in_range(size_bits: usize, range_bits: usize) -> Result<BigNumber, Error> {
-    trace!("bn::_generate_prime_in_range: >>> size: {size_bits}, range: {range_bits}",);
+impl BigNumber {
+    pub fn generate_prime_in_range(
+        size_bits: usize,
+        range_bits: usize,
+        mut ctx: Option<&mut BigNumberContext>,
+    ) -> Result<BigNumber, Error> {
+        trace!("bn::_generate_prime_in_range: >>> size: {size_bits}, range: {range_bits}",);
 
-    // size_bits defines the number of bits in the result, such that the minimum result
-    // value is 2^size_bits (ie. the total number of bits is size_bits + 1).
-    // range_bits defines the variability within that range, such that
-    // the last 2^range_bits are randomly chosen.
+        // size_bits defines the number of bits in the result, such that the minimum result
+        // value is 2^size_bits (ie. the total number of bits is size_bits + 1).
+        // range_bits defines the variability within that range, such that
+        // the last 2^range_bits are randomly chosen.
 
-    assert!(size_bits > 1);
-    assert!(range_bits > 1 && range_bits <= size_bits);
+        assert!(size_bits > 1);
+        assert!(range_bits > 1 && range_bits <= size_bits);
 
-    let size_bytes = size_bits / 8 + 1;
-    let range_bytes = range_bits / 8 + 1;
-    let size_top_bits = size_bits % 8;
-    let range_top_bits = range_bits % 8;
-    let range_top_offs = size_bytes - range_bytes;
-    let mut buf = vec![0u8; size_bytes];
-    let mut iteration = 0;
-    let mut rng = thread_rng();
-    let mut ctx = BigNumber::new_context()?;
+        let size_bytes = size_bits / 8 + 1;
+        let range_bytes = range_bits / 8 + 1;
+        let size_top_bits = size_bits % 8;
+        let range_top_bits = range_bits % 8;
+        let range_top_offs = size_bytes - range_bytes;
+        let mut buf = vec![0u8; size_bytes];
+        let mut iteration = 0;
+        let mut rng = thread_rng();
 
-    let res = loop {
-        buf.fill(0u8);
-        rng.fill_bytes(&mut buf[range_top_offs..]);
-        // only odd candidates
-        buf[size_bytes - 1] |= 1;
-        // ensure within range
-        buf[range_top_offs] &= u8::MAX >> (8 - range_top_bits);
-        // ensure within size
-        buf[0] |= 1 << size_top_bits;
+        let res = loop {
+            buf.fill(0u8);
+            rng.fill_bytes(&mut buf[range_top_offs..]);
+            // only odd candidates
+            buf[size_bytes - 1] |= 1;
+            // ensure within range
+            buf[range_top_offs] &= u8::MAX >> (8 - range_top_bits);
+            // ensure within size
+            buf[0] |= 1 << size_top_bits;
 
-        let res = BigNumber::from_bytes(&buf)?;
-        if res.is_prime(Some(&mut ctx))? {
-            debug!("Found prime in {iteration} iterations");
-            break res;
+            let res = BigNumber::from_bytes(&buf)?;
+            if res.is_prime(_reborrow_option(&mut ctx))? {
+                debug!("Found prime in {iteration} iterations");
+                break res;
+            }
+            iteration += 1;
+        };
+
+        trace!(
+            "bn::_generate_prime_in_range: <<< prime: {:?}",
+            secret!(&res)
+        );
+        Ok(res)
+    }
+
+    pub fn generates_semiprime_subgroup(
+        &self,
+        p_prime: &BigNumber,
+        q_prime: &BigNumber,
+        n: &BigNumber,
+        mut ctx: Option<&mut BigNumberContext>,
+    ) -> Result<bool, Error> {
+        // Returns true if and only if self is a generator for a
+        // multiplicative subgroup of the integers mod n of order
+        // p'*q' where n = (2p' + 1) * (2q' + 1)
+
+        // Can be used to check if an invertible quadratic residue of
+        // an RSA modulus n is a generator for the whole group of
+        // invertible quadratic residues mod n
+
+        if self.eq(&BIGNUMBER_1)
+            || self
+                .mod_exp(p_prime, &n, _reborrow_option(&mut ctx))?
+                .eq(&BIGNUMBER_1)
+            || self
+                .mod_exp(q_prime, &n, _reborrow_option(&mut ctx))?
+                .eq(&BIGNUMBER_1)
+        {
+            return Ok(false);
         }
-        iteration += 1;
-    };
 
-    trace!(
-        "bn::_generate_prime_in_range: <<< prime: {:?}",
-        secret!(&res)
-    );
-    Ok(res)
+        Ok(true)
+    }
+
+    pub fn random_qr(
+        n: &BigNumber,
+        mut ctx: Option<&mut BigNumberContext>,
+    ) -> Result<BigNumber, Error> {
+        let mut sqr_candidate = n.rand_range()?;
+
+        // Number sqr_candidate to square must be between 1 and n-1 and
+        // have gcd(sqr_candidate,n)=1
+        while BigNumber::gcd(&sqr_candidate, n, _reborrow_option(&mut ctx))?.ne(&BIGNUMBER_1) {
+            sqr_candidate = n.rand_range()?;
+        }
+
+        let qr = sqr_candidate
+            .sqr(_reborrow_option(&mut ctx))?
+            .modulus(n, ctx)?;
+
+        Ok(qr)
+    }
+}
+
+fn _reborrow_option<'a, 'b: 'a, T>(opt: &'a mut Option<&'b mut T>) -> Option<&'a mut T> {
+    opt.as_mut().map(|o| &mut **o)
 }
 
 #[cfg(test)]
@@ -145,7 +202,8 @@ mod tests {
             .unwrap()
             .add(&start)
             .unwrap();
-        let random_prime = _generate_prime_in_range(RANGE_START, RANGE_SIZE).unwrap();
+        let random_prime =
+            BigNumber::generate_prime_in_range(RANGE_START, RANGE_SIZE, None).unwrap();
         assert!(start < random_prime, "{start:?} >= {random_prime:?}");
         assert!(end >= random_prime, "{end:?} < {random_prime:?}");
     }
@@ -300,7 +358,7 @@ mod tests {
         // QR*_n.
         let mut a = BigNumber::from_dec("4").unwrap();
         assert_eq!(
-            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n),
+            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n, None),
             Ok(true)
         );
 
@@ -311,7 +369,7 @@ mod tests {
         // hence it is not primitive in QR*_n
         a = BigNumber::from_dec("83826306846185295424745260846198095936").unwrap();
         assert_eq!(
-            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n),
+            a.generates_semiprime_subgroup(&p_prime, &q_prime, &n, None),
             Ok(false)
         );
     }

@@ -844,20 +844,25 @@ impl Issuer {
         let q = q_safe.rshift1()?;
 
         let n = p_safe.mul(&q_safe, Some(&mut ctx))?;
-        let mut s = random_qr(&n)?;
-        while !s.generates_semiprime_subgroup(&p, &q, &n)? {
-            s = random_qr(&n)?;
-        }
+        let s = loop {
+            let s = random_qr(&n, Some(&mut ctx))?;
+            if s.generates_semiprime_subgroup(&p, &q, &n, Some(&mut ctx))? {
+                break s;
+            }
+        };
 
-        let xz = gen_x(&p, &q)?;
+        let xz = gen_x(&p, &q, Some(&mut ctx))?;
 
         let mut xr = HashMap::new();
         for non_schema_element in &non_credential_schema.attrs {
-            xr.insert(non_schema_element.to_string(), gen_x(&p, &q)?);
+            xr.insert(
+                non_schema_element.to_string(),
+                gen_x(&p, &q, Some(&mut ctx))?,
+            );
         }
 
         for attribute in &credential_schema.attrs {
-            xr.insert(attribute.to_string(), gen_x(&p, &q)?);
+            xr.insert(attribute.to_string(), gen_x(&p, &q, Some(&mut ctx))?);
         }
 
         let mut r = HashMap::new();
@@ -867,7 +872,7 @@ impl Issuer {
 
         let z = s.mod_exp(&xz, &n, Some(&mut ctx))?;
 
-        let rctxt = s.mod_exp(&gen_x(&p, &q)?, &n, Some(&mut ctx))?;
+        let rctxt = s.mod_exp(&gen_x(&p, &q, Some(&mut ctx))?, &n, Some(&mut ctx))?;
 
         let cred_pr_pub_key = CredentialPrimaryPublicKey { n, s, rctxt, r, z };
         let cred_pr_priv_key = CredentialPrimaryPrivateKey { p, q };
@@ -932,13 +937,13 @@ impl Issuer {
 
         let mut ctx = BigNumber::new_context()?;
 
-        let xz_tilda = gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q)?;
+        let xz_tilda = gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q, Some(&mut ctx))?;
 
         let mut xr_tilda = HashMap::new();
         for key in cred_pr_pub_key.r.keys() {
             xr_tilda.insert(
                 key.to_string(),
-                gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q)?,
+                gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q, Some(&mut ctx))?,
             );
         }
 
@@ -1173,7 +1178,7 @@ impl Issuer {
 
         let v = generate_v_prime_prime()?;
 
-        let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE)?;
+        let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE, None)?;
         let (a, q) = Issuer::_sign_primary_credential(
             cred_pub_key,
             cred_priv_key,

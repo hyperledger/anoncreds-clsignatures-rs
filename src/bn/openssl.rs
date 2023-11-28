@@ -533,47 +533,6 @@ impl BigNumber {
         Ok(bn)
     }
 
-    pub fn generates_semiprime_subgroup(
-        &self,
-        p_prime: &BigNumber,
-        q_prime: &BigNumber,
-        n: &BigNumber,
-    ) -> ClResult<bool> {
-        // Returns true if and only if self is a generator for a
-        // multiplicative subgroup of the integers mod n of order
-        // p'*q' where n = (2p' + 1) * (2q' + 1)
-
-        // Can be used to check if an invertible quadratic residue of
-        // an RSA modulus n is a generator for the whole group of
-        // invertible quadratic residues mod n
-
-        let big_one = BigNumber::from_u32(1)?;
-
-        if self == &big_one
-            || self.mod_exp(p_prime, &n, None)? == big_one
-            || self.mod_exp(q_prime, &n, None)? == big_one
-        {
-            return Ok(false);
-        }
-
-        Ok(true)
-    }
-
-    pub fn random_qr(n: &BigNumber) -> ClResult<BigNumber> {
-        let mut sqr_candidate = n.rand_range()?;
-        let big_one = BigNumber::from_u32(1)?;
-
-        // Number sqr_candidate to square must be between 1 and n-1 and
-        // have gcd(sqr_candidate,n)=1
-        while Self::gcd(&sqr_candidate, n, None)? != big_one {
-            sqr_candidate = n.rand_range()?;
-        }
-
-        let qr = sqr_candidate.sqr(None)?.modulus(n, None)?;
-
-        Ok(qr)
-    }
-
     // Question: Why does this need to be a Result? When is creating a BigNumber same as another
     // BigNumber not possible given sufficient memory?
     pub fn try_clone(&self) -> ClResult<BigNumber> {

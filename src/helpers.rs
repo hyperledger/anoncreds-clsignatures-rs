@@ -6,7 +6,7 @@ use std::hash::Hash;
 use std::cell::RefCell;
 
 use crate::amcl::{GroupOrderElement, Pair, PointG1};
-use crate::bn::{BigNumber, BigNumberContext, BIGNUMBER_1};
+use crate::bn::{BigNumber, BIGNUMBER_1};
 use crate::constants::*;
 use crate::error::Result as ClResult;
 use crate::hash::{hash_to_bignum, ByteOrder};
@@ -121,17 +121,13 @@ pub fn generate_v_prime_prime() -> ClResult<BigNumber> {
     Ok(v_prime_prime)
 }
 
-pub fn generate_prime_in_range(
-    size_bits: usize,
-    range_bits: usize,
-    ctx: Option<&mut BigNumberContext>,
-) -> ClResult<BigNumber> {
+pub fn generate_prime_in_range(size_bits: usize, range_bits: usize) -> ClResult<BigNumber> {
     #[cfg(test)]
     if MockHelper::is_injected() {
         return BigNumber::from_dec("259344723055062059907025491480697571938277889515152306249728583105665800713306759149981690559193987143012367913206299323899696942213235956742930201588264091397308910346117473868881");
     }
 
-    BigNumber::generate_prime_in_range(size_bits, range_bits, ctx)
+    BigNumber::generate_prime_in_range(size_bits, range_bits)
 }
 
 pub fn generate_safe_prime(size: usize) -> ClResult<BigNumber> {
@@ -157,11 +153,7 @@ pub fn generate_safe_prime(size: usize) -> ClResult<BigNumber> {
     Ok(safe_prime)
 }
 
-pub fn gen_x(
-    p: &BigNumber,
-    q: &BigNumber,
-    ctx: Option<&mut BigNumberContext>,
-) -> ClResult<BigNumber> {
+pub fn gen_x(p: &BigNumber, q: &BigNumber) -> ClResult<BigNumber> {
     #[cfg(test)]
     if MockHelper::is_injected() {
         return BigNumber::from_dec("21756443327382027172985704617047967597993694788495380290694324827806324727974811069286883097008098972826137846700650885182803802394920367284736320514617598740869006348763668941791139304299497512001555851506177534398138662287596439312757685115968057647052806345903116050638193978301573172649243964671896070438965753820826200974052042958554415386005813811429117062833340444950490735389201033755889815382997617514953672362380638953231325483081104074039069074312082459855104868061153181218462493120741835250281211598658590317583724763093211076383033803581749876979865965366178002285968278439178209181121479879436785731938");
@@ -169,7 +161,7 @@ pub fn gen_x(
 
     trace!("Helpers::gen_x: >>> p: {:?}, q: {:?}", p, q);
 
-    let mut x = p.mul(q, ctx)?.sub_word(3)?.rand_range()?;
+    let mut x = p.mul(q)?.sub_word(3)?.rand_range()?;
 
     x.add_word(2)?;
 
@@ -178,13 +170,13 @@ pub fn gen_x(
     Ok(x)
 }
 
-pub fn random_qr(n: &BigNumber, ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+pub fn random_qr(n: &BigNumber) -> ClResult<BigNumber> {
     #[cfg(test)]
     if MockHelper::is_injected() {
         return BigNumber::from_dec("64684820421150545443421261645532741305438158267230326415141505826951816460650437611148133267480407958360035501128469885271549378871140475869904030424615175830170939416512594291641188403335834762737251794282186335118831803135149622404791467775422384378569231649224208728902565541796896860352464500717052768431523703881746487372385032277847026560711719065512366600220045978358915680277126661923892187090579302197390903902744925313826817940566429968987709582805451008234648959429651259809188953915675063700676546393568304468609062443048457324721450190021552656280473128156273976008799243162970386898307404395608179975243");
     }
 
-    BigNumber::random_qr(n, ctx)
+    BigNumber::random_qr(n)
 }
 
 //TODO: FIXME very inefficient code
@@ -253,9 +245,8 @@ pub fn calc_teq<S: ::std::hash::BuildHasher>(
     trace!("Helpers::calc_teq: >>> p_pub_key: {:?}, p_pub_key: {:?}, e: {:?}, v: {:?}, m_tilde: {:?}, m2_tilde: {:?}, \
     unrevealed_attrs: {:?}", p_pub_key, a_prime, e, v, m_tilde, m2_tilde, unrevealed_attrs);
 
-    let mut ctx = BigNumber::new_context()?;
     // a_prime^e % p_pub_key.n
-    let mut result: BigNumber = a_prime.mod_exp(e, &p_pub_key.n, Some(&mut ctx))?;
+    let mut result: BigNumber = a_prime.mod_exp(e, &p_pub_key.n)?;
 
     for k in unrevealed_attrs.iter() {
         let cur_r = p_pub_key
@@ -268,19 +259,19 @@ pub fn calc_teq<S: ::std::hash::BuildHasher>(
 
         // result = result * (cur_r^cur_m % p_pub_key.n) % p_pub_key.n
         result = cur_r
-            .mod_exp(cur_m, &p_pub_key.n, Some(&mut ctx))?
-            .mod_mul(&result, &p_pub_key.n, Some(&mut ctx))?;
+            .mod_exp(cur_m, &p_pub_key.n)?
+            .mod_mul(&result, &p_pub_key.n)?;
     }
 
     result = p_pub_key
         .s
-        .mod_exp(v, &p_pub_key.n, Some(&mut ctx))?
-        .mod_mul(&result, &p_pub_key.n, Some(&mut ctx))?;
+        .mod_exp(v, &p_pub_key.n)?
+        .mod_mul(&result, &p_pub_key.n)?;
 
     result = p_pub_key
         .rctxt
-        .mod_exp(m2_tilde, &p_pub_key.n, Some(&mut ctx))?
-        .mod_mul(&result, &p_pub_key.n, Some(&mut ctx))?;
+        .mod_exp(m2_tilde, &p_pub_key.n)?
+        .mod_mul(&result, &p_pub_key.n)?;
 
     trace!("Helpers::calc_teq: <<< t: {:?}", result);
 
@@ -307,7 +298,6 @@ pub fn calc_tne<S: ::std::hash::BuildHasher>(
     );
 
     let mut tau_list: Vec<BigNumber> = Vec::new();
-    let mut ctx = BigNumber::new_context()?;
 
     for i in 0..ITERATION {
         let cur_u = u
@@ -319,12 +309,8 @@ pub fn calc_tne<S: ::std::hash::BuildHasher>(
 
         let t_tau = p_pub_key
             .z
-            .mod_exp(cur_u, &p_pub_key.n, Some(&mut ctx))?
-            .mod_mul(
-                &p_pub_key.s.mod_exp(cur_r, &p_pub_key.n, Some(&mut ctx))?,
-                &p_pub_key.n,
-                Some(&mut ctx),
-            )?;
+            .mod_exp(cur_u, &p_pub_key.n)?
+            .mod_mul(&p_pub_key.s.mod_exp(cur_r, &p_pub_key.n)?, &p_pub_key.n)?;
 
         tau_list.push(t_tau);
     }
@@ -338,16 +324,10 @@ pub fn calc_tne<S: ::std::hash::BuildHasher>(
         delta.try_clone()?
     };
 
-    let t_tau = p_pub_key
-        .z
-        .mod_exp(mj, &p_pub_key.n, Some(&mut ctx))?
-        .mod_mul(
-            &p_pub_key
-                .s
-                .mod_exp(&delta_predicate, &p_pub_key.n, Some(&mut ctx))?,
-            &p_pub_key.n,
-            Some(&mut ctx),
-        )?;
+    let t_tau = p_pub_key.z.mod_exp(mj, &p_pub_key.n)?.mod_mul(
+        &p_pub_key.s.mod_exp(&delta_predicate, &p_pub_key.n)?,
+        &p_pub_key.n,
+    )?;
 
     tau_list.push(t_tau);
 
@@ -361,15 +341,13 @@ pub fn calc_tne<S: ::std::hash::BuildHasher>(
             .get(&i.to_string())
             .ok_or_else(|| err_msg!("Value by key '{}' not found in u", i))?;
 
-        q = cur_t
-            .mod_exp(cur_u, &p_pub_key.n, Some(&mut ctx))?
-            .mul(&q, Some(&mut ctx))?;
+        q = cur_t.mod_exp(cur_u, &p_pub_key.n)?.mul(&q)?;
     }
 
     q = p_pub_key
         .s
-        .mod_exp(alpha, &p_pub_key.n, Some(&mut ctx))?
-        .mod_mul(&q, &p_pub_key.n, Some(&mut ctx))?;
+        .mod_exp(alpha, &p_pub_key.n)?
+        .mod_mul(&q, &p_pub_key.n)?;
 
     tau_list.push(q);
 
@@ -442,11 +420,8 @@ pub fn four_squares(delta: i32) -> ClResult<HashMap<String, BigNumber>> {
     Ok(res)
 }
 
-pub fn bignum_to_group_element_reduce(
-    num: &BigNumber,
-    ctx: Option<&mut BigNumberContext>,
-) -> ClResult<GroupOrderElement> {
-    let reduced = num.modulus(&GroupOrderElement::order()?, ctx)?;
+pub fn bignum_to_group_element_reduce(num: &BigNumber) -> ClResult<GroupOrderElement> {
+    let reduced = num.modulus(&GroupOrderElement::order()?)?;
     GroupOrderElement::from_bytes(&reduced.to_bytes()?)
 }
 
@@ -608,13 +583,10 @@ pub fn get_pedersen_commitment(
     gen_2: &BigNumber,
     r: &BigNumber,
     modulus: &BigNumber,
-    ctx: &mut BigNumberContext,
 ) -> ClResult<BigNumber> {
-    let commitment = gen_1.mod_exp(m, modulus, Some(ctx))?.mod_mul(
-        &gen_2.mod_exp(r, modulus, Some(ctx))?,
-        modulus,
-        Some(ctx),
-    )?;
+    let commitment = gen_1
+        .mod_exp(m, modulus)?
+        .mod_mul(&gen_2.mod_exp(r, modulus)?, modulus)?;
     Ok(commitment)
 }
 

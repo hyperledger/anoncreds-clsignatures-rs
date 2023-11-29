@@ -14,9 +14,6 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error as ClError, Result as ClResult};
 
-#[derive(Debug)]
-pub struct BigNumberContext;
-
 pub struct BigNumber {
     bn: BigInt,
 }
@@ -44,10 +41,6 @@ macro_rules! prime_check {
 }
 
 impl BigNumber {
-    pub fn new_context() -> ClResult<BigNumberContext> {
-        Ok(BigNumberContext {})
-    }
-
     pub fn new() -> ClResult<BigNumber> {
         Ok(BigNumber { bn: BigInt::zero() })
     }
@@ -60,11 +53,11 @@ impl BigNumber {
         prime_generation!(safe_prime, size, "Unable to generate safe prime")
     }
 
-    pub fn is_prime(&self, _ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
+    pub fn is_prime(&self) -> ClResult<bool> {
         prime_check!(prime, self, "An error in is_prime")
     }
 
-    pub fn is_safe_prime(&self, _ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
+    pub fn is_safe_prime(&self) -> ClResult<bool> {
         prime_check!(safe_prime, self, "An error in is_safe_prime")
     }
 
@@ -147,36 +140,26 @@ impl BigNumber {
         Ok(BigNumber { bn: res })
     }
 
-    pub fn sqr(&self, _ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn sqr(&self) -> ClResult<BigNumber> {
         let res = &self.bn * &self.bn;
         Ok(BigNumber { bn: res })
     }
 
-    pub fn mul(&self, a: &BigNumber, _ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn mul(&self, a: &BigNumber) -> ClResult<BigNumber> {
         let res = &self.bn * &a.bn;
         Ok(BigNumber { bn: res })
     }
 
-    pub fn mod_mul(
-        &self,
-        a: &BigNumber,
-        n: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_mul(&self, a: &BigNumber, n: &BigNumber) -> ClResult<BigNumber> {
         //TODO: Use montgomery reduction
-        self.mul(&a, None)?.modulus(&n, None)
+        self.mul(&a)?.modulus(&n)
     }
 
-    pub fn mod_sub(
-        &self,
-        a: &BigNumber,
-        n: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
-        self.sub(&a)?.modulus(&n, None)
+    pub fn mod_sub(&self, a: &BigNumber, n: &BigNumber) -> ClResult<BigNumber> {
+        self.sub(&a)?.modulus(&n)
     }
 
-    pub fn div(&self, a: &BigNumber, _ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn div(&self, a: &BigNumber) -> ClResult<BigNumber> {
         if a.bn.is_zero() {
             Err(err_msg!("divisor cannot be zero"))
         } else {
@@ -185,11 +168,7 @@ impl BigNumber {
         }
     }
 
-    pub fn gcd(
-        a: &BigNumber,
-        b: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn gcd(a: &BigNumber, b: &BigNumber) -> ClResult<BigNumber> {
         Ok(BigNumber {
             bn: a.bn.gcd(&b.bn),
         })
@@ -219,18 +198,13 @@ impl BigNumber {
         }
     }
 
-    pub fn mod_exp(
-        &self,
-        a: &BigNumber,
-        b: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_exp(&self, a: &BigNumber, b: &BigNumber) -> ClResult<BigNumber> {
         if b.bn.is_one() {
             return BigNumber::new();
         }
 
         if a.is_negative() {
-            let res = self.inverse(&b, _ctx)?;
+            let res = self.inverse(&b)?;
             let a = a.set_negative(false)?;
             Ok(BigNumber {
                 bn: res.bn.modpow(&a.bn, &BigNumber::_get_modulus(&b.bn)),
@@ -241,11 +215,7 @@ impl BigNumber {
         }
     }
 
-    pub fn modulus(
-        &self,
-        a: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn modulus(&self, a: &BigNumber) -> ClResult<BigNumber> {
         if a.bn.is_zero() {
             return Err(err_msg!("Invalid modulus"));
         }
@@ -265,7 +235,7 @@ impl BigNumber {
         }
     }
 
-    pub fn exp(&self, a: &BigNumber, _ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn exp(&self, a: &BigNumber) -> ClResult<BigNumber> {
         if self.bn.bits() == 0 {
             return Ok(BigNumber::default());
         } else if a.bn.is_one() {
@@ -280,11 +250,7 @@ impl BigNumber {
         }
     }
 
-    pub fn inverse(
-        &self,
-        n: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn inverse(&self, n: &BigNumber) -> ClResult<BigNumber> {
         if n.bn.is_one() || n.bn.is_zero() {
             return Err(err_msg!("Invalid modulus"));
         }
@@ -372,45 +338,9 @@ impl BigNumber {
         Ok(BigNumber { bn: &self.bn >> n })
     }
 
-    pub fn mod_div(
-        &self,
-        b: &BigNumber,
-        p: &BigNumber,
-        _ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_div(&self, b: &BigNumber, p: &BigNumber) -> ClResult<BigNumber> {
         //(a * (1/b mod p) mod p)
-        self.mul(&b.inverse(&p, None)?, None)?.modulus(&p, None)
-    }
-
-    pub fn generates_semiprime_subgroup(
-        &self,
-        p_prime: &BigNumber,
-        q_prime: &BigNumber,
-        n: &BigNumber,
-    ) -> ClResult<bool> {
-        // Returns true if and only if self is a generator for a
-        // multiplicative subgroup of the integers mod n of order
-        // p'*q' where n = (2p' + 1) * (2q' + 1)
-
-        // Can be used to check if an invertible quadratic residue of
-        // an RSA modulus n is a generator for the whole group of
-        // invertible quadratic residues mod n
-
-        let big_one = BigNumber::from_u32(1)?;
-
-        if self == &big_one
-            || self.mod_exp(p_prime, &n, None)? == big_one
-            || self.mod_exp(q_prime, &n, None)? == big_one
-        {
-            return Ok(false);
-        }
-
-        Ok(true)
-    }
-
-    pub fn random_qr(n: &BigNumber) -> ClResult<BigNumber> {
-        let qr = n.rand_range()?.sqr(None)?.modulus(&n, None)?;
-        Ok(qr)
+        self.mul(&b.inverse(&p)?)?.modulus(&p)
     }
 
     pub fn try_clone(&self) -> ClResult<BigNumber> {

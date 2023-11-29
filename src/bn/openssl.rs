@@ -1,8 +1,9 @@
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::cmp::Ord;
 use std::cmp::Ordering;
-use std::fmt;
 
-use openssl::bn::{BigNum, BigNumContext, BigNumRef, MsbOption};
+use openssl::bn::{BigNum, BigNumContext, BigNumContextRef, BigNumRef, MsbOption};
 use openssl::error::ErrorStack;
 
 #[cfg(feature = "serde")]
@@ -16,14 +17,15 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error as ClError, Result as ClResult};
 
-pub struct BigNumberContext {
-    openssl_bn_context: BigNumContext,
+thread_local! {
+    static BN_CONTEXT: RefCell<BigNumContext> = RefCell::new(BigNumContext::new_secure().unwrap());
 }
 
-impl fmt::Debug for BigNumberContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "BigNumberContext")
-    }
+fn with_bn_context<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut BigNumContextRef) -> R,
+{
+    BN_CONTEXT.with(|cell| f(cell.borrow_mut().borrow_mut()))
 }
 
 #[derive(Debug)]
@@ -32,13 +34,6 @@ pub struct BigNumber {
 }
 
 impl BigNumber {
-    pub fn new_context() -> ClResult<BigNumberContext> {
-        let ctx = BigNumContext::new_secure()?;
-        Ok(BigNumberContext {
-            openssl_bn_context: ctx,
-        })
-    }
-
     pub fn new() -> ClResult<BigNumber> {
         let bn = BigNum::new_secure()?;
         Ok(BigNumber { openssl_bn: bn })
@@ -56,43 +51,25 @@ impl BigNumber {
         Ok(bn)
     }
 
-    pub fn is_prime(&self, ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
+    pub fn is_prime(&self) -> ClResult<bool> {
         let prime_len = self.openssl_bn.num_bits() as f32 * core::f32::consts::LOG10_2;
         let checks = prime_len.log2() as i32;
-        match ctx {
-            Some(context) => Ok(self.openssl_bn.is_prime_fasttest(
-                checks,
-                &mut context.openssl_bn_context,
-                true,
-            )?),
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                Ok(self
-                    .openssl_bn
-                    .is_prime_fasttest(checks, &mut ctx.openssl_bn_context, true)?)
-            }
-        }
+        Ok(with_bn_context(|ctx| {
+            self.openssl_bn.is_prime_fasttest(checks, ctx, true)
+        })?)
     }
 
-    pub fn is_safe_prime(&self, ctx: Option<&mut BigNumberContext>) -> ClResult<bool> {
-        match ctx {
-            Some(c) => {
-                // according to https://eprint.iacr.org/2003/186.pdf
-                // a safe prime is congruent to 2 mod 3
+    pub fn is_safe_prime(&self) -> ClResult<bool> {
+        // according to https://eprint.iacr.org/2003/186.pdf
+        // a safe prime is congruent to 2 mod 3
 
-                // a safe prime satisfies (p-1)/2 is prime. Since a
-                // prime is odd, We just need to divide by 2
-                Ok(
-                    self.modulus(&BigNumber::from_u32(3)?, Some(c))? == BigNumber::from_u32(2)?
-                        && self.is_prime(Some(c))?
-                        && self.rshift1()?.is_prime(Some(c))?,
-                )
-            }
-            None => {
-                let mut context = BigNumber::new_context()?;
-                self.is_safe_prime(Some(&mut context))
-            }
-        }
+        // a safe prime satisfies (p-1)/2 is prime. Since a
+        // prime is odd, We just need to divide by 2
+        Ok(
+            self.modulus(&BigNumber::from_u32(3)?)? == BigNumber::from_u32(2)?
+                && self.is_prime()?
+                && self.rshift1()?.is_prime()?,
+        )
     }
 
     pub fn rand(size: usize) -> ClResult<BigNumber> {
@@ -172,151 +149,61 @@ impl BigNumber {
     }
 
     // TODO: There should be a mod_sqr using underlying math library's square modulo since squaring is faster.
-    pub fn sqr(&self, ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn sqr(&self) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::sqr(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::sqr(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| BigNumRef::sqr(&mut bn.openssl_bn, &self.openssl_bn, ctx))?;
         Ok(bn)
     }
 
-    pub fn mul(&self, a: &BigNumber, ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn mul(&self, a: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::checked_mul(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &a.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::checked_mul(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::checked_mul(&mut bn.openssl_bn, &self.openssl_bn, &a.openssl_bn, ctx)
+        })?;
         Ok(bn)
     }
 
-    pub fn mod_mul(
-        &self,
-        a: &BigNumber,
-        n: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_mul(&self, a: &BigNumber, n: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::mod_mul(
+        with_bn_context(|ctx| {
+            BigNumRef::mod_mul(
                 &mut bn.openssl_bn,
                 &self.openssl_bn,
                 &a.openssl_bn,
                 &n.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::mod_mul(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &n.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+                ctx,
+            )
+        })?;
         Ok(bn)
     }
 
-    pub fn mod_sub(
-        &self,
-        a: &BigNumber,
-        n: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_sub(&self, a: &BigNumber, n: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::mod_sub(
+        with_bn_context(|ctx| {
+            BigNumRef::mod_sub(
                 &mut bn.openssl_bn,
                 &self.openssl_bn,
                 &a.openssl_bn,
                 &n.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::mod_sub(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &n.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+                ctx,
+            )
+        })?;
         Ok(bn)
     }
 
-    pub fn div(&self, a: &BigNumber, ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn div(&self, a: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::checked_div(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &a.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::checked_div(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::checked_div(&mut bn.openssl_bn, &self.openssl_bn, &a.openssl_bn, ctx)
+        })?;
         Ok(bn)
     }
 
-    pub fn gcd(
-        a: &BigNumber,
-        b: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn gcd(a: &BigNumber, b: &BigNumber) -> ClResult<BigNumber> {
         let mut gcd = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::gcd(
-                &mut gcd.openssl_bn,
-                &a.openssl_bn,
-                &b.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::gcd(
-                    &mut gcd.openssl_bn,
-                    &a.openssl_bn,
-                    &b.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::gcd(&mut gcd.openssl_bn, &a.openssl_bn, &b.openssl_bn, ctx)
+        })?;
         Ok(gcd)
     }
 
@@ -342,120 +229,55 @@ impl BigNumber {
         Ok(self)
     }
 
-    pub fn mod_exp(
-        &self,
-        a: &BigNumber,
-        b: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
-        match ctx {
-            Some(context) => self._mod_exp(a, b, context),
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                self._mod_exp(a, b, &mut ctx)
-            }
-        }
-    }
-
-    fn _mod_exp(
-        &self,
-        a: &BigNumber,
-        b: &BigNumber,
-        ctx: &mut BigNumberContext,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_exp(&self, a: &BigNumber, b: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
 
         if a.openssl_bn.is_negative() {
-            BigNumRef::mod_exp(
-                &mut bn.openssl_bn,
-                &self.inverse(b, Some(ctx))?.openssl_bn,
-                &a.set_negative(false)?.openssl_bn,
-                &b.openssl_bn,
-                &mut ctx.openssl_bn_context,
-            )?;
+            let (base, a1) = (self.inverse(b)?, a.set_negative(false)?);
+            with_bn_context(|ctx| {
+                BigNumRef::mod_exp(
+                    &mut bn.openssl_bn,
+                    &base.openssl_bn,
+                    &a1.openssl_bn,
+                    &b.openssl_bn,
+                    ctx,
+                )
+            })?;
         } else {
-            BigNumRef::mod_exp(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &a.openssl_bn,
-                &b.openssl_bn,
-                &mut ctx.openssl_bn_context,
-            )?;
+            with_bn_context(|ctx| {
+                BigNumRef::mod_exp(
+                    &mut bn.openssl_bn,
+                    &self.openssl_bn,
+                    &a.openssl_bn,
+                    &b.openssl_bn,
+                    ctx,
+                )
+            })?;
         };
         Ok(bn)
     }
 
-    pub fn modulus(
-        &self,
-        a: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn modulus(&self, a: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::nnmod(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &a.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::nnmod(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::nnmod(&mut bn.openssl_bn, &self.openssl_bn, &a.openssl_bn, ctx)
+        })?;
         Ok(bn)
     }
 
-    pub fn exp(&self, a: &BigNumber, ctx: Option<&mut BigNumberContext>) -> ClResult<BigNumber> {
+    pub fn exp(&self, a: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::exp(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &a.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::exp(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &a.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::exp(&mut bn.openssl_bn, &self.openssl_bn, &a.openssl_bn, ctx)
+        })?;
         Ok(bn)
     }
 
-    pub fn inverse(
-        &self,
-        n: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
+    pub fn inverse(&self, n: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        match ctx {
-            Some(context) => BigNumRef::mod_inverse(
-                &mut bn.openssl_bn,
-                &self.openssl_bn,
-                &n.openssl_bn,
-                &mut context.openssl_bn_context,
-            )?,
-            None => {
-                let mut ctx = BigNumber::new_context()?;
-                BigNumRef::mod_inverse(
-                    &mut bn.openssl_bn,
-                    &self.openssl_bn,
-                    &n.openssl_bn,
-                    &mut ctx.openssl_bn_context,
-                )?;
-            }
-        }
+        with_bn_context(|ctx| {
+            BigNumRef::mod_inverse(&mut bn.openssl_bn, &self.openssl_bn, &n.openssl_bn, ctx)
+        })?;
         Ok(bn)
     }
 
@@ -499,37 +321,19 @@ impl BigNumber {
         Ok(bn)
     }
 
-    pub fn mod_div(
-        &self,
-        b: &BigNumber,
-        p: &BigNumber,
-        ctx: Option<&mut BigNumberContext>,
-    ) -> ClResult<BigNumber> {
-        //(a * (1/b mod p) mod p)
-        match ctx {
-            Some(context) => self._mod_div(b, p, context),
-            None => {
-                let mut context = BigNumber::new_context()?;
-                self._mod_div(b, p, &mut context)
-            }
-        }
-    }
-
     ///(a * (1/b mod p) mod p)
-    fn _mod_div(
-        &self,
-        b: &BigNumber,
-        p: &BigNumber,
-        ctx: &mut BigNumberContext,
-    ) -> ClResult<BigNumber> {
+    pub fn mod_div(&self, b: &BigNumber, p: &BigNumber) -> ClResult<BigNumber> {
         let mut bn = BigNumber::new()?;
-        BigNumRef::mod_mul(
-            &mut bn.openssl_bn,
-            &self.openssl_bn,
-            &b.inverse(p, Some(ctx))?.openssl_bn,
-            &p.openssl_bn,
-            &mut ctx.openssl_bn_context,
-        )?;
+        let b1 = &b.inverse(p)?;
+        with_bn_context(|ctx| {
+            BigNumRef::mod_mul(
+                &mut bn.openssl_bn,
+                &self.openssl_bn,
+                &b1.openssl_bn,
+                &p.openssl_bn,
+                ctx,
+            )
+        })?;
         Ok(bn)
     }
 

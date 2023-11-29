@@ -351,16 +351,13 @@ impl Prover {
             }
         }
 
-        let mut ctx = BigNumber::new_context()?;
-
-        let z_inverse = pr_pub_key.z.inverse(&pr_pub_key.n, Some(&mut ctx))?;
+        let z_inverse = pr_pub_key.z.inverse(&pr_pub_key.n)?;
         let z_cap = get_pedersen_commitment(
             &z_inverse,
             &key_correctness_proof.c,
             &pr_pub_key.s,
             &key_correctness_proof.xz_cap,
             &pr_pub_key.n,
-            &mut ctx,
         )?;
 
         let mut ordered_r_values = Vec::new();
@@ -370,14 +367,13 @@ impl Prover {
             let r_value = &pr_pub_key.r[key];
             ordered_r_values.push(r_value.try_clone()?);
 
-            let r_inverse = r_value.inverse(&pr_pub_key.n, Some(&mut ctx))?;
+            let r_inverse = r_value.inverse(&pr_pub_key.n)?;
             let val = get_pedersen_commitment(
                 &r_inverse,
                 &key_correctness_proof.c,
                 &pr_pub_key.s,
                 xr_cap_value,
                 &pr_pub_key.n,
-                &mut ctx,
             )?;
             ordered_r_cap_values.push(val);
         }
@@ -414,7 +410,6 @@ impl Prover {
                credential_values
         );
 
-        let mut ctx = BigNumber::new_context()?;
         let v_prime = bn_rand(LARGE_VPRIME)?;
 
         //Hidden attributes are combined in this value
@@ -425,7 +420,7 @@ impl Prover {
             .map(|(attr, _)| attr.clone())
             .collect::<BTreeSet<String>>();
         let u = hidden_attributes.iter().fold(
-            p_pub_key.s.mod_exp(&v_prime, &p_pub_key.n, Some(&mut ctx)),
+            p_pub_key.s.mod_exp(&v_prime, &p_pub_key.n),
             |acc, attr| {
                 let pk_r = p_pub_key
                     .r
@@ -433,9 +428,8 @@ impl Prover {
                     .ok_or_else(|| err_msg!("Value by key '{}' not found in pk.r", attr))?;
                 let cred_value = &credential_values.attrs_values[attr];
                 acc?.mod_mul(
-                    &pk_r.mod_exp(cred_value.value(), &p_pub_key.n, Some(&mut ctx))?,
+                    &pk_r.mod_exp(cred_value.value(), &p_pub_key.n)?,
                     &p_pub_key.n,
-                    Some(&mut ctx),
                 )
             },
         )?;
@@ -460,7 +454,6 @@ impl Prover {
                         &p_pub_key.z,
                         value,
                         &p_pub_key.n,
-                        &mut ctx,
                     )?,
                 );
             }
@@ -514,17 +507,13 @@ impl Prover {
             credential_values
         );
 
-        let mut ctx = BigNumber::new_context()?;
-
         let v_dash_tilde = bn_rand(LARGE_VPRIME_TILDE)?;
 
         let mut m_tildes = BTreeMap::new();
         let mut r_tildes = BTreeMap::new();
 
         let mut values: Vec<u8> = Vec::new();
-        let mut u_tilde = p_pub_key
-            .s
-            .mod_exp(&v_dash_tilde, &p_pub_key.n, Some(&mut ctx))?;
+        let mut u_tilde = p_pub_key.s.mod_exp(&v_dash_tilde, &p_pub_key.n)?;
 
         for (attr, cred_value) in credential_values
             .attrs_values
@@ -539,11 +528,8 @@ impl Prover {
 
             match *cred_value {
                 CredentialValue::Hidden { .. } => {
-                    u_tilde = u_tilde.mod_mul(
-                        &pk_r.mod_exp(&m_tilde, &p_pub_key.n, Some(&mut ctx))?,
-                        &p_pub_key.n,
-                        Some(&mut ctx),
-                    )?;
+                    u_tilde =
+                        u_tilde.mod_mul(&pk_r.mod_exp(&m_tilde, &p_pub_key.n)?, &p_pub_key.n)?;
                 }
                 CredentialValue::Commitment { .. } => {
                     let r_tilde = bn_rand(LARGE_MTILDE)?;
@@ -553,7 +539,6 @@ impl Prover {
                         &p_pub_key.s,
                         &r_tilde,
                         &p_pub_key.n,
-                        &mut ctx,
                     )?;
                     r_tildes.insert(attr.clone(), r_tilde);
 
@@ -576,7 +561,7 @@ impl Prover {
         let c = hash_list_to_bignum(&[values])?;
 
         let v_dash_cap = c
-            .mul(&blinded_primary_credential_secrets.v_prime, Some(&mut ctx))?
+            .mul(&blinded_primary_credential_secrets.v_prime)?
             .add(&v_dash_tilde)?;
 
         let mut m_caps = BTreeMap::new();
@@ -592,15 +577,15 @@ impl Prover {
 
             match ca {
                 CredentialValue::Hidden { value } => {
-                    let m_cap = m_tilde.add(&c.mul(value, Some(&mut ctx))?)?;
+                    let m_cap = m_tilde.add(&c.mul(value)?)?;
                     m_caps.insert(attr.clone(), m_cap);
                 }
                 CredentialValue::Commitment {
                     value,
                     blinding_factor,
                 } => {
-                    let m_cap = m_tilde.add(&c.mul(value, Some(&mut ctx))?)?;
-                    let r_cap = r_tildes[attr].add(&c.mul(blinding_factor, Some(&mut ctx))?)?;
+                    let m_cap = m_tilde.add(&c.mul(value)?)?;
+                    let r_cap = r_tildes[attr].add(&c.mul(blinding_factor)?)?;
 
                     m_caps.insert(attr.clone(), m_cap);
                     r_caps.insert(attr.clone(), r_cap);
@@ -690,9 +675,7 @@ impl Prover {
             nonce
         );
 
-        let mut ctx = BigNumber::new_context()?;
-
-        if !p_cred_sig.e.is_prime(Some(&mut ctx))? {
+        if !p_cred_sig.e.is_prime()? {
             return Err(err_msg!("Invalid Signature correctness proof"));
         }
 
@@ -725,40 +708,28 @@ impl Prover {
                     &p_pub_key.rctxt,
                     &p_cred_sig.m_2,
                     &p_pub_key.n,
-                    &mut ctx,
                 ),
                 |acc, (attr, value)| {
                     acc?.mod_mul(
-                        &p_pub_key.r[&attr.clone()].mod_exp(
-                            value.value(),
-                            &p_pub_key.n,
-                            Some(&mut ctx),
-                        )?,
+                        &p_pub_key.r[&attr.clone()].mod_exp(value.value(), &p_pub_key.n)?,
                         &p_pub_key.n,
-                        Some(&mut ctx),
                     )
                 },
             )?;
 
-        let q = p_pub_key.z.mod_div(&rx, &p_pub_key.n, Some(&mut ctx))?;
+        let q = p_pub_key.z.mod_div(&rx, &p_pub_key.n)?;
 
-        let expected_q = p_cred_sig
-            .a
-            .mod_exp(&p_cred_sig.e, &p_pub_key.n, Some(&mut ctx))?;
+        let expected_q = p_cred_sig.a.mod_exp(&p_cred_sig.e, &p_pub_key.n)?;
 
         if !q.eq(&expected_q) {
             return Err(err_msg!("Invalid Signature correctness proof q != q'"));
         }
 
-        let degree = signature_correctness_proof.c.add(
-            &signature_correctness_proof
-                .se
-                .mul(&p_cred_sig.e, Some(&mut ctx))?,
-        )?;
+        let degree = signature_correctness_proof
+            .c
+            .add(&signature_correctness_proof.se.mul(&p_cred_sig.e)?)?;
 
-        let a_cap = p_cred_sig
-            .a
-            .mod_exp(&degree, &p_pub_key.n, Some(&mut ctx))?;
+        let a_cap = p_cred_sig.a.mod_exp(&degree, &p_pub_key.n)?;
 
         let mut values: Vec<u8> = Vec::new();
         values.extend_from_slice(&q.to_bytes()?);
@@ -1283,7 +1254,7 @@ impl ProofBuilder {
             ProofBuilder::_create_c_list_values(r_cred, &c_list_params, cred_rev_pub_key, witness)?;
 
         let tau_list_params = ProofBuilder::_gen_tau_list_params()?;
-        let m2 = bignum_to_group_element_reduce(m2_tilde, None)?;
+        let m2 = bignum_to_group_element_reduce(m2_tilde)?;
         let tau_list =
             create_tau_list_values(cred_rev_pub_key, rev_reg, &tau_list_params, &c_list, &m2)?;
 
@@ -1326,8 +1297,6 @@ impl ProofBuilder {
             m2_tilde,
         );
 
-        let mut ctx = BigNumber::new_context()?;
-
         let r = bn_rand(LARGE_VPRIME)?;
         let e_tilde = bn_rand(LARGE_ETILDE)?;
         let v_tilde = bn_rand(LARGE_VTILDE)?;
@@ -1346,12 +1315,12 @@ impl ProofBuilder {
 
         let a_prime = cred_pub_key
             .s
-            .mod_exp(&r, &cred_pub_key.n, Some(&mut ctx))?
-            .mod_mul(&c1.a, &cred_pub_key.n, Some(&mut ctx))?;
+            .mod_exp(&r, &cred_pub_key.n)?
+            .mod_mul(&c1.a, &cred_pub_key.n)?;
 
         let e_prime = c1.e.sub(&LARGE_E_START_VALUE)?;
 
-        let v_prime = c1.v.sub(&c1.e.mul(&r, Some(&mut ctx))?)?;
+        let v_prime = c1.v.sub(&c1.e.mul(&r)?)?;
 
         let t = calc_teq(
             cred_pub_key,
@@ -1392,8 +1361,6 @@ impl ProofBuilder {
         trace!("ProofBuilder::_init_ne_proof: >>> p_pub_key: {:?}, m_tilde: {:?}, cred_values: {:?}, predicate: {:?}",
                p_pub_key, m_tilde, cred_values, predicate);
 
-        let mut ctx = BigNumber::new_context()?;
-
         let attr_value = cred_values
             .attrs_values
             .get(&predicate.attr_name)
@@ -1426,14 +1393,8 @@ impl ProofBuilder {
                 .ok_or_else(|| err_msg!("Value by key '{}' not found in u1", i))?;
 
             let cur_r = bn_rand(LARGE_VPRIME)?;
-            let cut_t = get_pedersen_commitment(
-                &p_pub_key.z,
-                cur_u,
-                &p_pub_key.s,
-                &cur_r,
-                &p_pub_key.n,
-                &mut ctx,
-            )?;
+            let cut_t =
+                get_pedersen_commitment(&p_pub_key.z, cur_u, &p_pub_key.s, &cur_r, &p_pub_key.n)?;
 
             r.insert(i.to_string(), cur_r);
             t.insert(i.to_string(), cut_t.try_clone()?);
@@ -1448,7 +1409,6 @@ impl ProofBuilder {
             &p_pub_key.s,
             &r_delta,
             &p_pub_key.n,
-            &mut ctx,
         )?;
 
         r.insert("DELTA".to_string(), r_delta);
@@ -1521,14 +1481,12 @@ impl ProofBuilder {
             sub_proof_request
         );
 
-        let mut ctx = BigNumber::new_context()?;
-
         let e = challenge
-            .mul(&init_proof.e_prime, Some(&mut ctx))?
+            .mul(&init_proof.e_prime)?
             .add(&init_proof.e_tilde)?;
 
         let v = challenge
-            .mul(&init_proof.v_prime, Some(&mut ctx))?
+            .mul(&init_proof.v_prime)?
             .add(&init_proof.v_tilde)?;
 
         let mut m_hat = HashMap::new();
@@ -1554,16 +1512,12 @@ impl ProofBuilder {
                 .ok_or_else(|| err_msg!("Value by key '{}' not found in attributes_values", k))?;
 
             // val = cur_mtilde + (cur_val * challenge)
-            let val = challenge
-                .mul(cur_val.value(), Some(&mut ctx))?
-                .add(cur_mtilde)?;
+            let val = challenge.mul(cur_val.value())?.add(cur_mtilde)?;
 
             m_hat.insert(k.clone(), val);
         }
 
-        let m2_hat = challenge
-            .mul(&init_proof.m2, Some(&mut ctx))?
-            .add(&init_proof.m2_tilde)?;
+        let m2_hat = challenge.mul(&init_proof.m2)?.add(&init_proof.m2_tilde)?;
 
         let mut revealed_attrs_with_values = BTreeMap::new();
 
@@ -1608,7 +1562,6 @@ impl ProofBuilder {
             eq_proof
         );
 
-        let mut ctx = BigNumber::new_context()?;
         let mut u = HashMap::new();
         let mut r = HashMap::new();
         let mut urproduct = BigNumber::new()?;
@@ -1619,26 +1572,24 @@ impl ProofBuilder {
             let cur_rtilde = &init_proof.r_tilde[&i.to_string()];
             let cur_r = &init_proof.r[&i.to_string()];
 
-            let new_u: BigNumber = c_h.mul(cur_u, Some(&mut ctx))?.add(cur_utilde)?;
-            let new_r: BigNumber = c_h.mul(cur_r, Some(&mut ctx))?.add(cur_rtilde)?;
+            let new_u: BigNumber = c_h.mul(cur_u)?.add(cur_utilde)?;
+            let new_r: BigNumber = c_h.mul(cur_r)?.add(cur_rtilde)?;
 
             u.insert(i.to_string(), new_u);
             r.insert(i.to_string(), new_r);
 
-            urproduct = cur_u.mul(cur_r, Some(&mut ctx))?.add(&urproduct)?;
+            urproduct = cur_u.mul(cur_r)?.add(&urproduct)?;
 
             let cur_rtilde_delta = &init_proof.r_tilde["DELTA"];
 
-            let new_delta = c_h
-                .mul(&init_proof.r["DELTA"], Some(&mut ctx))?
-                .add(cur_rtilde_delta)?;
+            let new_delta = c_h.mul(&init_proof.r["DELTA"])?.add(cur_rtilde_delta)?;
 
             r.insert("DELTA".to_string(), new_delta);
         }
 
         let alpha = init_proof.r["DELTA"]
             .sub(&urproduct)?
-            .mul(c_h, Some(&mut ctx))?
+            .mul(c_h)?
             .add(&init_proof.alpha_tilde)?;
 
         let primary_predicate_ne_proof = PrimaryPredicateInequalityProof {
@@ -1843,7 +1794,7 @@ impl ProofBuilder {
             c_h
         );
 
-        let ch_num_z = bignum_to_group_element_reduce(c_h, None)?;
+        let ch_num_z = bignum_to_group_element_reduce(c_h)?;
         let mut x_list: Vec<GroupOrderElement> = Vec::new();
 
         for (x, y) in init_proof

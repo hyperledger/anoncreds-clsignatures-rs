@@ -831,8 +831,6 @@ impl Issuer {
             credential_schema
         );
 
-        let mut ctx = BigNumber::new_context()?;
-
         if credential_schema.attrs.is_empty() {
             return Err(err_msg!("List of attributes is empty"));
         }
@@ -843,36 +841,33 @@ impl Issuer {
         let p = p_safe.rshift1()?;
         let q = q_safe.rshift1()?;
 
-        let n = p_safe.mul(&q_safe, Some(&mut ctx))?;
+        let n = p_safe.mul(&q_safe)?;
         let s = loop {
-            let s = random_qr(&n, Some(&mut ctx))?;
-            if s.generates_semiprime_subgroup(&p, &q, &n, Some(&mut ctx))? {
+            let s = random_qr(&n)?;
+            if s.generates_semiprime_subgroup(&p, &q, &n)? {
                 break s;
             }
         };
 
-        let xz = gen_x(&p, &q, Some(&mut ctx))?;
+        let xz = gen_x(&p, &q)?;
 
         let mut xr = HashMap::new();
         for non_schema_element in &non_credential_schema.attrs {
-            xr.insert(
-                non_schema_element.to_string(),
-                gen_x(&p, &q, Some(&mut ctx))?,
-            );
+            xr.insert(non_schema_element.to_string(), gen_x(&p, &q)?);
         }
 
         for attribute in &credential_schema.attrs {
-            xr.insert(attribute.to_string(), gen_x(&p, &q, Some(&mut ctx))?);
+            xr.insert(attribute.to_string(), gen_x(&p, &q)?);
         }
 
         let mut r = HashMap::new();
         for (key, xr_value) in xr.iter() {
-            r.insert(key.to_string(), s.mod_exp(xr_value, &n, Some(&mut ctx))?);
+            r.insert(key.to_string(), s.mod_exp(xr_value, &n)?);
         }
 
-        let z = s.mod_exp(&xz, &n, Some(&mut ctx))?;
+        let z = s.mod_exp(&xz, &n)?;
 
-        let rctxt = s.mod_exp(&gen_x(&p, &q, Some(&mut ctx))?, &n, Some(&mut ctx))?;
+        let rctxt = s.mod_exp(&gen_x(&p, &q)?, &n)?;
 
         let cred_pr_pub_key = CredentialPrimaryPublicKey { n, s, rctxt, r, z };
         let cred_pr_priv_key = CredentialPrimaryPrivateKey { p, q };
@@ -935,21 +930,17 @@ impl Issuer {
         trace!("Issuer::_new_credential_key_correctness_proof: >>> cred_pr_pub_key: {:?}, cred_pr_priv_key: {:?}, cred_pr_pub_key_meta: {:?}",
                cred_pr_pub_key, secret!(cred_pr_priv_key), cred_pr_pub_key_meta);
 
-        let mut ctx = BigNumber::new_context()?;
-
-        let xz_tilda = gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q, Some(&mut ctx))?;
+        let xz_tilda = gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q)?;
 
         let mut xr_tilda = HashMap::new();
         for key in cred_pr_pub_key.r.keys() {
             xr_tilda.insert(
                 key.to_string(),
-                gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q, Some(&mut ctx))?,
+                gen_x(&cred_pr_priv_key.p, &cred_pr_priv_key.q)?,
             );
         }
 
-        let z_tilda = cred_pr_pub_key
-            .s
-            .mod_exp(&xz_tilda, &cred_pr_pub_key.n, Some(&mut ctx))?;
+        let z_tilda = cred_pr_pub_key.s.mod_exp(&xz_tilda, &cred_pr_pub_key.n)?;
 
         let mut r_tilda = HashMap::new();
         for (key, xr_tilda_value) in xr_tilda.iter() {
@@ -957,7 +948,7 @@ impl Issuer {
                 key.to_string(),
                 cred_pr_pub_key
                     .s
-                    .mod_exp(xr_tilda_value, &cred_pr_pub_key.n, Some(&mut ctx))?,
+                    .mod_exp(xr_tilda_value, &cred_pr_pub_key.n)?,
             );
         }
 
@@ -976,16 +967,12 @@ impl Issuer {
 
         let c = hash_list_to_bignum(&[values])?;
 
-        let xz_cap = c
-            .mul(&cred_pr_pub_key_meta.xz, Some(&mut ctx))?
-            .add(&xz_tilda)?;
+        let xz_cap = c.mul(&cred_pr_pub_key_meta.xz)?.add(&xz_tilda)?;
 
         let mut xr_cap: Vec<(String, BigNumber)> = Vec::new();
         for key in ordered_attrs {
             let xr_tilda_value = &xr_tilda[&key];
-            let val = c
-                .mul(&cred_pr_pub_key_meta.xr[&key], Some(&mut ctx))?
-                .add(xr_tilda_value)?;
+            let val = c.mul(&cred_pr_pub_key_meta.xr[&key])?.add(xr_tilda_value)?;
             xr_cap.push((key, val));
         }
 
@@ -1038,25 +1025,21 @@ impl Issuer {
          nonce: {:?}, cred_pr_pub_key: {:?}", blinded_cred_secrets, blinded_cred_secrets_correctness_proof, nonce, cred_pr_pub_key);
 
         let mut values: Vec<u8> = Vec::new();
-        let mut ctx = BigNumber::new_context()?;
 
         let u_cap = blinded_cred_secrets.hidden_attributes.iter().fold(
             blinded_cred_secrets
                 .u
-                .inverse(&cred_pr_pub_key.n, Some(&mut ctx))?
+                .inverse(&cred_pr_pub_key.n)?
                 .mod_exp(
                     &blinded_cred_secrets_correctness_proof.c,
                     &cred_pr_pub_key.n,
-                    Some(&mut ctx),
                 )?
                 .mod_mul(
                     &cred_pr_pub_key.s.mod_exp(
                         &blinded_cred_secrets_correctness_proof.v_dash_cap,
                         &cred_pr_pub_key.n,
-                        Some(&mut ctx),
                     )?,
                     &cred_pr_pub_key.n,
-                    Some(&mut ctx),
                 ),
             |acc, attr| {
                 let pk_r = cred_pr_pub_key.r.get(&attr.clone()).ok_or_else(|| {
@@ -1064,9 +1047,8 @@ impl Issuer {
                 })?;
                 let m_cap = &blinded_cred_secrets_correctness_proof.m_caps[attr];
                 acc?.mod_mul(
-                    &pk_r.mod_exp(m_cap, &cred_pr_pub_key.n, Some(&mut ctx))?,
+                    &pk_r.mod_exp(m_cap, &cred_pr_pub_key.n)?,
                     &cred_pr_pub_key.n,
-                    Some(&mut ctx),
                 )
             },
         )?;
@@ -1074,11 +1056,10 @@ impl Issuer {
         for (key, value) in &blinded_cred_secrets.committed_attributes {
             let m_cap = &blinded_cred_secrets_correctness_proof.m_caps[key];
             let comm_att_cap = value
-                .inverse(&cred_pr_pub_key.n, Some(&mut ctx))?
+                .inverse(&cred_pr_pub_key.n)?
                 .mod_exp(
                     &blinded_cred_secrets_correctness_proof.c,
                     &cred_pr_pub_key.n,
-                    Some(&mut ctx),
                 )?
                 .mod_mul(
                     &get_pedersen_commitment(
@@ -1087,10 +1068,8 @@ impl Issuer {
                         &cred_pr_pub_key.s,
                         &blinded_cred_secrets_correctness_proof.r_caps[key],
                         &cred_pr_pub_key.n,
-                        &mut ctx,
                     )?,
                     &cred_pr_pub_key.n,
-                    Some(&mut ctx),
                 )?;
 
             values.extend_from_slice(&comm_att_cap.to_bytes()?);
@@ -1178,7 +1157,7 @@ impl Issuer {
 
         let v = generate_v_prime_prime()?;
 
-        let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE, None)?;
+        let e = generate_prime_in_range(LARGE_E_START, LARGE_E_END_RANGE)?;
         let (a, q) = Issuer::_sign_primary_credential(
             cred_pub_key,
             cred_priv_key,
@@ -1234,20 +1213,15 @@ impl Issuer {
         let p_pub_key = &cred_pub_key.p_key;
         let p_priv_key = &cred_priv_key.p_key;
 
-        let mut context = BigNumber::new_context()?;
-
-        let mut rx = p_pub_key.s.mod_exp(v, &p_pub_key.n, Some(&mut context))?;
+        let mut rx = p_pub_key.s.mod_exp(v, &p_pub_key.n)?;
 
         if blinded_cred_secrets.u != BigNumber::from_u32(0)? {
-            rx = rx.mod_mul(&blinded_cred_secrets.u, &p_pub_key.n, Some(&mut context))?;
+            rx = rx.mod_mul(&blinded_cred_secrets.u, &p_pub_key.n)?;
         }
 
         rx = rx.mod_mul(
-            &p_pub_key
-                .rctxt
-                .mod_exp(cred_context, &p_pub_key.n, Some(&mut context))?,
+            &p_pub_key.rctxt.mod_exp(cred_context, &p_pub_key.n)?,
             &p_pub_key.n,
-            Some(&mut context),
         )?;
 
         for (key, attr) in cred_values
@@ -1261,16 +1235,16 @@ impl Issuer {
                 .ok_or_else(|| err_msg!("Value by key '{}' not found in public key", key))?;
 
             rx = pk_r
-                .mod_exp(attr.value(), &p_pub_key.n, Some(&mut context))?
-                .mod_mul(&rx, &p_pub_key.n, Some(&mut context))?;
+                .mod_exp(attr.value(), &p_pub_key.n)?
+                .mod_mul(&rx, &p_pub_key.n)?;
         }
 
-        let q = p_pub_key.z.mod_div(&rx, &p_pub_key.n, Some(&mut context))?;
+        let q = p_pub_key.z.mod_div(&rx, &p_pub_key.n)?;
 
-        let n = p_priv_key.p.mul(&p_priv_key.q, Some(&mut context))?;
-        let e_inverse = e.inverse(&n, Some(&mut context))?;
+        let n = p_priv_key.p.mul(&p_priv_key.q)?;
+        let e_inverse = e.inverse(&n)?;
 
-        let a = q.mod_exp(&e_inverse, &p_pub_key.n, Some(&mut context))?;
+        let a = q.mod_exp(&e_inverse, &p_pub_key.n)?;
 
         trace!(
             "Issuer::_sign_primary_credential: <<< a: {:?}, q: {:?}",
@@ -1291,12 +1265,10 @@ impl Issuer {
         trace!("Issuer::_new_signature_correctness_proof: >>> p_pub_key: {:?}, p_priv_key: {:?}, p_cred_signature: {:?}, q: {:?}, nonce: {:?}",
                p_pub_key, secret!(p_priv_key), secret!(p_cred_signature), secret!(q), nonce);
 
-        let mut ctx = BigNumber::new_context()?;
-
-        let n = p_priv_key.p.mul(&p_priv_key.q, Some(&mut ctx))?;
+        let n = p_priv_key.p.mul(&p_priv_key.q)?;
         let r = bn_rand_range(&n)?;
 
-        let a_cap = q.mod_exp(&r, &p_pub_key.n, Some(&mut ctx))?;
+        let a_cap = q.mod_exp(&r, &p_pub_key.n)?;
 
         let mut values: Vec<u8> = Vec::new();
         values.extend_from_slice(&q.to_bytes()?);
@@ -1306,15 +1278,7 @@ impl Issuer {
 
         let c = hash_list_to_bignum(&[values])?;
 
-        let se = r.mod_sub(
-            &c.mod_mul(
-                &p_cred_signature.e.inverse(&n, Some(&mut ctx))?,
-                &n,
-                Some(&mut ctx),
-            )?,
-            &n,
-            Some(&mut ctx),
-        )?;
+        let se = r.mod_sub(&c.mod_mul(&p_cred_signature.e.inverse(&n)?, &n)?, &n)?;
 
         let signature_correctness_proof = SignatureCorrectnessProof { c, se };
 
@@ -1370,7 +1334,7 @@ impl Issuer {
 
         let vr_prime_prime = GroupOrderElement::new()?;
         let c = GroupOrderElement::new()?;
-        let m2 = bignum_to_group_element_reduce(cred_context, None)?;
+        let m2 = bignum_to_group_element_reduce(cred_context)?;
 
         let gamma_i = Tail::index_pow(rev_idx, &rev_key_priv.gamma)?;
         let g_i = r_pub_key.g.mul(&gamma_i)?;
@@ -1564,7 +1528,7 @@ mod tests {
 
         let expected_q = primary_credential
             .a
-            .mod_exp(&primary_credential.e, &pub_key.p_key.n, None)
+            .mod_exp(&primary_credential.e, &pub_key.p_key.n)
             .unwrap();
 
         let (credential_signature, q) = Issuer::_sign_primary_credential(

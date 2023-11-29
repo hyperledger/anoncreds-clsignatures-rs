@@ -473,11 +473,7 @@ impl ProofVerifier {
             &unrevealed_attrs,
         )?;
 
-        let mut ctx = BigNumber::new_context()?;
-
-        let mut rar = proof
-            .a_prime
-            .mod_exp(&LARGE_E_START_VALUE, &p_pub_key.n, Some(&mut ctx))?;
+        let mut rar = proof.a_prime.mod_exp(&LARGE_E_START_VALUE, &p_pub_key.n)?;
 
         for (attr, encoded_value) in &proof.revealed_attrs {
             let cur_r = p_pub_key.r.get(attr).ok_or_else(|| {
@@ -485,17 +481,17 @@ impl ProofVerifier {
             })?;
 
             rar = cur_r
-                .mod_exp(encoded_value, &p_pub_key.n, Some(&mut ctx))?
-                .mod_mul(&rar, &p_pub_key.n, Some(&mut ctx))?;
+                .mod_exp(encoded_value, &p_pub_key.n)?
+                .mod_mul(&rar, &p_pub_key.n)?;
         }
 
         let t2: BigNumber = p_pub_key
             .z
-            .mod_div(&rar, &p_pub_key.n, Some(&mut ctx))?
-            .inverse(&p_pub_key.n, Some(&mut ctx))?
-            .mod_exp(c_hash, &p_pub_key.n, Some(&mut ctx))?;
+            .mod_div(&rar, &p_pub_key.n)?
+            .inverse(&p_pub_key.n)?
+            .mod_exp(c_hash, &p_pub_key.n)?;
 
-        let t: BigNumber = t1.mod_mul(&t2, &p_pub_key.n, Some(&mut ctx))?;
+        let t: BigNumber = t1.mod_mul(&t2, &p_pub_key.n)?;
 
         trace!("ProofVerifier::_verify_equality: <<< t: {:?}", t);
 
@@ -514,7 +510,6 @@ impl ProofVerifier {
             c_hash
         );
 
-        let mut ctx = BigNumber::new_context()?;
         let mut tau_list = calc_tne(
             p_pub_key,
             &proof.u,
@@ -531,9 +526,9 @@ impl ProofVerifier {
             })?;
 
             tau_list[i] = cur_t
-                .mod_exp(c_hash, &p_pub_key.n, Some(&mut ctx))?
-                .inverse(&p_pub_key.n, Some(&mut ctx))?
-                .mod_mul(&tau_list[i], &p_pub_key.n, Some(&mut ctx))?;
+                .mod_exp(c_hash, &p_pub_key.n)?
+                .inverse(&p_pub_key.n)?
+                .mod_mul(&tau_list[i], &p_pub_key.n)?;
         }
 
         let delta = proof
@@ -542,27 +537,23 @@ impl ProofVerifier {
             .ok_or_else(|| err_msg!(ProofRejected, "Value by key 'DELTA' not found in proof.t"))?;
 
         let delta_prime = if proof.predicate.is_less() {
-            delta.inverse(&p_pub_key.n, Some(&mut ctx))?
+            delta.inverse(&p_pub_key.n)?
         } else {
             delta.try_clone()?
         };
 
         tau_list[ITERATION] = p_pub_key
             .z
-            .mod_exp(
-                &proof.predicate.get_delta_prime()?,
-                &p_pub_key.n,
-                Some(&mut ctx),
-            )?
-            .mul(&delta_prime, Some(&mut ctx))?
-            .mod_exp(c_hash, &p_pub_key.n, Some(&mut ctx))?
-            .inverse(&p_pub_key.n, Some(&mut ctx))?
-            .mod_mul(&tau_list[ITERATION], &p_pub_key.n, Some(&mut ctx))?;
+            .mod_exp(&proof.predicate.get_delta_prime()?, &p_pub_key.n)?
+            .mul(&delta_prime)?
+            .mod_exp(c_hash, &p_pub_key.n)?
+            .inverse(&p_pub_key.n)?
+            .mod_mul(&tau_list[ITERATION], &p_pub_key.n)?;
 
         tau_list[ITERATION + 1] = delta
-            .mod_exp(c_hash, &p_pub_key.n, Some(&mut ctx))?
-            .inverse(&p_pub_key.n, Some(&mut ctx))?
-            .mod_mul(&tau_list[ITERATION + 1], &p_pub_key.n, Some(&mut ctx))?;
+            .mod_exp(c_hash, &p_pub_key.n)?
+            .inverse(&p_pub_key.n)?
+            .mod_mul(&tau_list[ITERATION + 1], &p_pub_key.n)?;
 
         trace!(
             "ProofVerifier::_verify_ne_predicate: <<< tau_list: {:?},",
@@ -584,8 +575,8 @@ impl ProofVerifier {
         trace!("ProofVerifier::_verify_non_revocation_proof: >>> r_pub_key: {:?}, rev_reg: {:?}, rev_key_pub: {:?}, c_hash: {:?}",
                r_pub_key, rev_reg, rev_key_pub, c_hash);
 
-        let ch_num_z = bignum_to_group_element_reduce(c_hash, None)?;
-        let mut m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2, None)?;
+        let ch_num_z = bignum_to_group_element_reduce(c_hash)?;
+        let mut m2 = bignum_to_group_element_reduce(&primary_proof.eq_proof.m2)?;
         let mut c = ch_num_z.mod_neg()?;
 
         if accept_legacy {

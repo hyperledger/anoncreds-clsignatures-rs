@@ -144,11 +144,13 @@ impl PointG1 {
     }
 
     /// Encode to hexadecimal format
+    #[allow(unused)]
     pub fn to_string(&self) -> ClResult<String> {
         Ok(self.point.to_hex())
     }
 
     /// Decode from hexadecimal format
+    #[allow(unused)]
     pub fn from_string(val: &str) -> ClResult<Self> {
         let res = Self::from_string_inf(val)?;
         if res.is_inf()? {
@@ -671,10 +673,12 @@ impl Pair {
         Ok(self.pair.isunity())
     }
 
+    #[allow(unused)]
     pub fn to_string(&self) -> ClResult<String> {
         Ok(self.pair.to_hex())
     }
 
+    #[allow(unused)]
     pub fn from_string(val: &str) -> ClResult<Pair> {
         pre_validate_point(val, 12)?;
         let pair = FP12::from_hex(val.to_string());
@@ -692,6 +696,7 @@ impl Pair {
         Ok(vec)
     }
 
+    #[allow(unused)]
     pub fn from_bytes(b: &[u8]) -> ClResult<Self> {
         if b.len() != Self::BYTES_REPR_SIZE {
             Err(err_msg!("Invalid byte length for Pair"))

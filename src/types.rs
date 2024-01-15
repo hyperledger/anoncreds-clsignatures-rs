@@ -1185,9 +1185,9 @@ impl SubProofRequestBuilder {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Predicate {
-    pub(crate) attr_name: String,
-    pub(crate) p_type: PredicateType,
-    pub(crate) value: i32,
+    pub attr_name: String,
+    pub p_type: PredicateType,
+    pub value: i32,
 }
 
 impl Predicate {
@@ -1252,6 +1252,14 @@ impl SubProof {
             res.insert(k.clone(), v.to_dec()?);
         }
         Ok(res)
+    }
+
+    pub fn predicates(&self) -> Vec<Predicate> {
+        self.primary_proof
+            .ne_proofs
+            .iter()
+            .map(|proof| proof.predicate.clone())
+            .collect()
     }
 }
 

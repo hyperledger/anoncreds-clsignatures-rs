@@ -14,6 +14,7 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error as ClError, Result as ClResult};
 
+#[derive(Clone)]
 pub struct BigNumber {
     bn: BigInt,
 }

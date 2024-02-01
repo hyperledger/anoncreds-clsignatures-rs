@@ -337,12 +337,17 @@ impl BigNumber {
         Ok(bn)
     }
 
-    // Question: Why does this need to be a Result? When is creating a BigNumber same as another
-    // BigNumber not possible given sufficient memory?
     pub fn try_clone(&self) -> ClResult<BigNumber> {
-        let mut openssl_bn = BigNum::from_slice(&self.openssl_bn.to_vec()[..])?;
-        openssl_bn.set_negative(self.is_negative());
-        Ok(BigNumber { openssl_bn })
+        Ok(Self {
+            openssl_bn: self.openssl_bn.to_owned()?,
+        })
+    }
+}
+
+impl Clone for BigNumber {
+    fn clone(&self) -> Self {
+        self.try_clone()
+            .expect("Error allocating memory for BigNumber")
     }
 }
 

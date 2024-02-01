@@ -13,14 +13,14 @@ use crate::helpers;
 
 /// A list of attributes a Credential is based on.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialSchema {
     pub(crate) attrs: BTreeSet<String>, /* attr names */
 }
 
 /// A Builder of `Credential Schema`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialSchemaBuilder {
     pub(crate) attrs: BTreeSet<String>, /* attr names */
 }
@@ -43,13 +43,13 @@ impl CredentialSchemaBuilder {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonCredentialSchema {
     pub(crate) attrs: BTreeSet<String>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonCredentialSchemaBuilder {
     pub(crate) attrs: BTreeSet<String>,
 }
@@ -74,7 +74,7 @@ impl NonCredentialSchemaBuilder {
 /// The m value for attributes,
 /// commitments also store a blinding factor
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CredentialValue {
     Known {
         value: BigNumber,
@@ -129,7 +129,7 @@ impl CredentialValue {
 }
 
 /// Values of attributes from `Claim Schema` (must be integers).
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CredentialValues {
     pub(crate) attrs_values: BTreeMap<String, CredentialValue>,
@@ -152,7 +152,7 @@ impl CredentialValues {
 
 /// A Builder of `Credential Values`.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialValuesBuilder {
     pub(crate) attrs_values: BTreeMap<String, CredentialValue>, /* attr_name -> int representation of value */
 }
@@ -248,7 +248,7 @@ impl CredentialValuesBuilder {
 /// These keys are used to proof that credential was issued and doesn’t revoked by this issuer.
 /// Issuer keys have global identifier that must be known to all parties.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialPublicKey {
     pub(crate) p_key: CredentialPrimaryPublicKey,
     pub(crate) r_key: Option<CredentialRevocationPublicKey>,
@@ -284,7 +284,7 @@ impl CredentialPublicKey {
 /// `Issuer Private Key`: contains 2 internal parts.
 /// One for signing primary credentials and second for signing non-revocation credentials.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialPrivateKey {
     pub(crate) p_key: CredentialPrimaryPrivateKey,
     pub(crate) r_key: Option<CredentialRevocationPrivateKey>,
@@ -292,7 +292,7 @@ pub struct CredentialPrivateKey {
 
 /// Issuer's "Public Key" is used to verify the Issuer's signature over the Credential's attributes' values (primary credential).
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialPrimaryPublicKey {
     pub(crate) n: BigNumber,
     pub(crate) s: BigNumber,
@@ -343,14 +343,14 @@ impl<'a> ::serde::de::Deserialize<'a> for CredentialPrimaryPublicKey {
 
 /// Issuer's "Private Key" used for signing Credential's attributes' values (primary credential)
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialPrimaryPrivateKey {
     pub(crate) p: BigNumber,
     pub(crate) q: BigNumber,
 }
 
 /// `Primary Public Key Metadata` required for building of Proof Correctness of `Issuer Public Key`
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialPrimaryPublicKeyMetadata {
     pub(crate) xz: BigNumber,
     pub(crate) xr: HashMap<String, BigNumber>,
@@ -358,7 +358,7 @@ pub struct CredentialPrimaryPublicKeyMetadata {
 
 /// Proof of `Issuer Public Key` correctness
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialKeyCorrectnessProof {
     pub(crate) c: BigNumber,
     pub(crate) xz_cap: BigNumber,
@@ -380,7 +380,7 @@ impl CredentialKeyCorrectnessProof {
 
 /// `Revocation Public Key` is used to verify that credential wasn't revoked by Issuer.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialRevocationPublicKey {
     pub(crate) g: PointG1,
     pub(crate) g_dash: PointG2,
@@ -397,14 +397,14 @@ pub struct CredentialRevocationPublicKey {
 
 /// `Revocation Private Key` is used for signing Credential.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialRevocationPrivateKey {
     pub(crate) x: GroupOrderElement,
     pub(crate) sk: GroupOrderElement,
 }
 
 /// Accumulator value, contained in a revocation registry and delta.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize), serde(transparent))]
 pub struct Accumulator(PointG2Inf);
 
@@ -464,7 +464,7 @@ impl AsRef<PointG2> for Accumulator {
 /// Must be published by Issuer on a tamper-evident and highly available storage.
 /// Used by prover to prove that a credential hasn't revoked by the issuer.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RevocationRegistry {
     pub accum: Accumulator,
 }
@@ -574,7 +574,7 @@ impl From<&RevocationRegistry> for RevocationRegistryDelta {
 /// `Revocation Registry Delta` contains Accumulator changes.
 /// Must be applied to `Revocation Registry`
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct RevocationRegistryDelta {
     #[cfg_attr(
@@ -641,14 +641,14 @@ impl RevocationRegistryDelta {
 /// `Revocation Key Public` Accumulator public key.
 /// Must be published together with Accumulator
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RevocationKeyPublic {
     pub(crate) z: Pair,
 }
 
 /// `Revocation Key Private` Accumulator primate key.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RevocationKeyPrivate {
     pub(crate) gamma: GroupOrderElement,
 }
@@ -825,7 +825,7 @@ impl SimpleTailsAccessor {
 
 /// Issuer's signature over Credential attribute values.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialSignature {
     pub(crate) p_credential: PrimaryCredentialSignature,
     pub(crate) r_credential: Option<NonRevocationCredentialSignature>, /* will be used to proof is credential revoked preparation */
@@ -847,7 +847,7 @@ impl CredentialSignature {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryCredentialSignature {
     pub(crate) m_2: BigNumber,
     pub(crate) a: BigNumber,
@@ -867,7 +867,7 @@ impl PrimaryCredentialSignature {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonRevocationCredentialSignature {
     pub(crate) sigma: PointG1,
     pub(crate) c: GroupOrderElement,
@@ -879,7 +879,7 @@ pub struct NonRevocationCredentialSignature {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignatureCorrectnessProof {
     pub(crate) se: BigNumber,
     pub(crate) c: BigNumber,
@@ -895,7 +895,7 @@ impl SignatureCorrectnessProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Witness {
     pub(crate) omega: PointG2Inf,
 }
@@ -1007,7 +1007,7 @@ impl Witness {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WitnessSignature {
     pub(crate) sigma_i: PointG2,
     pub(crate) u_i: PointG2,
@@ -1020,7 +1020,7 @@ pub struct WitnessSignature {
 /// and sends the `BlindedCredentialSecrets` to Issuer who then encodes it credential creation.
 /// The blinding factors are used by Prover for post processing of issued credentials.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinkSecret {
     pub(crate) ms: BigNumber,
 }
@@ -1055,7 +1055,7 @@ impl From<LinkSecret> for BigNumber {
 
 /// Blinded Master Secret uses by Issuer in credential creation.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlindedCredentialSecrets {
     pub(crate) u: BigNumber,
     pub(crate) ur: Option<PointG1>,
@@ -1076,7 +1076,7 @@ impl BlindedCredentialSecrets {
 
 /// `CredentialSecretsBlindingFactors` used by Prover for post processing of credentials received from Issuer.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CredentialSecretsBlindingFactors {
     pub(crate) v_prime: BigNumber,
     pub(crate) vr_prime: Option<GroupOrderElement>,
@@ -1091,7 +1091,7 @@ impl CredentialSecretsBlindingFactors {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryBlindedCredentialSecretsFactors {
     pub(crate) u: BigNumber,
     pub(crate) v_prime: BigNumber,
@@ -1099,14 +1099,14 @@ pub struct PrimaryBlindedCredentialSecretsFactors {
     pub(crate) committed_attributes: BTreeMap<String, BigNumber>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RevocationBlindedCredentialSecretsFactors {
     pub(crate) ur: PointG1,
     pub(crate) vr_prime: GroupOrderElement,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlindedCredentialSecretsCorrectnessProof {
     pub(crate) c: BigNumber,                        // Fiat-Shamir challenge hash
     pub(crate) v_dash_cap: BigNumber, // Value to prove knowledge of `u` construction in `BlindedCredentialSecrets`
@@ -1127,7 +1127,7 @@ impl BlindedCredentialSecretsCorrectnessProof {
 
 /// “Sub Proof Request” - input to create a Proof for a credential;
 /// Contains attributes to be revealed and predicates.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 pub struct SubProofRequest {
     pub(crate) revealed_attrs: BTreeSet<String>,
@@ -1135,7 +1135,7 @@ pub struct SubProofRequest {
 }
 
 /// Builder of “Sub Proof Request”.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubProofRequestBuilder {
     value: SubProofRequest,
 }
@@ -1219,7 +1219,7 @@ impl Predicate {
 
 /// Condition type
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum PredicateType {
     GE,
     LE,
@@ -1232,14 +1232,14 @@ pub enum PredicateType {
 /// 2) Credential contains attributes with specific values that prover wants to disclose
 /// 3) Credential contains attributes with valid predicates that verifier wants the prover to satisfy.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Proof {
     pub proofs: Vec<SubProof>,
     pub aggregated_proof: AggregatedProof,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubProof {
     pub(crate) primary_proof: PrimaryProof,
     pub(crate) non_revoc_proof: Option<NonRevocProof>,
@@ -1264,14 +1264,14 @@ impl SubProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AggregatedProof {
     pub(crate) c_hash: BigNumber,
     pub(crate) c_list: Vec<Vec<u8>>,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryProof {
     pub(crate) eq_proof: PrimaryEqualProof,
     #[cfg_attr(feature = "serde", serde(rename = "ge_proofs"))]
@@ -1279,7 +1279,7 @@ pub struct PrimaryProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryEqualProof {
     pub(crate) revealed_attrs: BTreeMap<String /* attr_name of revealed */, BigNumber>,
     pub(crate) a_prime: BigNumber,
@@ -1320,7 +1320,7 @@ impl<'a> ::serde::de::Deserialize<'a> for PrimaryEqualProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryPredicateInequalityProof {
     pub(crate) u: HashMap<String, BigNumber>,
     pub(crate) r: HashMap<String, BigNumber>,
@@ -1331,13 +1331,13 @@ pub struct PrimaryPredicateInequalityProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonRevocProof {
     pub(crate) x_list: NonRevocProofXList,
     pub(crate) c_list: NonRevocProofCList,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InitProof {
     pub(crate) primary_init_proof: PrimaryInitProof,
     pub(crate) non_revoc_init_proof: Option<NonRevocInitProof>,
@@ -1347,7 +1347,7 @@ pub struct InitProof {
     pub(crate) non_credential_schema: NonCredentialSchema,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryInitProof {
     pub(crate) eq_proof: PrimaryEqualInitProof,
     pub(crate) ne_proofs: Vec<PrimaryPredicateInequalityInitProof>,
@@ -1371,7 +1371,7 @@ impl PrimaryInitProof {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NonRevocInitProof {
     pub(crate) c_list_params: NonRevocProofXList,
     pub(crate) tau_list_params: NonRevocProofXList,
@@ -1391,7 +1391,7 @@ impl NonRevocInitProof {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryEqualInitProof {
     pub(crate) a_prime: BigNumber,
     pub(crate) t: BigNumber,
@@ -1414,7 +1414,7 @@ impl PrimaryEqualInitProof {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrimaryPredicateInequalityInitProof {
     pub(crate) c_list: Vec<BigNumber>,
     pub(crate) tau_list: Vec<BigNumber>,
@@ -1438,7 +1438,7 @@ impl PrimaryPredicateInequalityInitProof {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRevocProofXList {
     pub(crate) rho: GroupOrderElement,
     pub(crate) r: GroupOrderElement,
@@ -1501,7 +1501,7 @@ impl NonRevocProofXList {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRevocProofCList {
     pub(crate) e: PointG1,
     pub(crate) d: PointG1,
@@ -1526,7 +1526,7 @@ impl NonRevocProofCList {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRevocProofTauList {
     pub(crate) t1: PointG1,
     pub(crate) t2: PointG1,
@@ -1556,7 +1556,7 @@ impl NonRevocProofTauList {
 /// Random BigNumber that uses `Prover` for proof generation and `Verifier` for proof verification.
 pub type Nonce = BigNumber;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiableCredential {
     pub(crate) pub_key: CredentialPublicKey,
     pub(crate) sub_proof_request: SubProofRequest,

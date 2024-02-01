@@ -210,6 +210,8 @@ impl Debug for PointG1 {
     }
 }
 
+impl Eq for PointG1 {}
+
 #[cfg(feature = "serde")]
 impl SerializableCryptoPrimitive for PointG1 {
     fn name() -> &'static str {
@@ -352,6 +354,8 @@ impl Debug for PointG2 {
     }
 }
 
+impl Eq for PointG2 {}
+
 #[cfg(feature = "serde")]
 impl SerializableCryptoPrimitive for PointG2 {
     fn name() -> &'static str {
@@ -414,6 +418,8 @@ impl PointG2Inf {
     }
 }
 
+impl Eq for PointG2Inf {}
+
 impl From<PointG2> for PointG2Inf {
     fn from(value: PointG2) -> Self {
         Self(value)
@@ -452,7 +458,7 @@ impl SerializableCryptoPrimitive for PointG2Inf {
 #[cfg(feature = "serde")]
 serializable_crypto_primitive!(PointG2Inf);
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct GroupOrderElement {
     bn: BIG,
 }
@@ -713,6 +719,8 @@ impl Debug for Pair {
         write!(f, "Pair {{ pair: {} }}", self.pair.to_hex())
     }
 }
+
+impl Eq for Pair {}
 
 #[cfg(feature = "serde")]
 impl SerializableCryptoPrimitive for Pair {

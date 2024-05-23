@@ -24,7 +24,7 @@ glass_pumpkin = "1.6"
 log = "0.4"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1.45"
-num-traits = "0.2.15"
+num-traits = "0.2.19"
 once_cell = "1"
 openssl = { version = "0.10", optional = true }
 rand = "0.8"

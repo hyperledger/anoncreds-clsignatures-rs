@@ -1,7 +1,7 @@
 name: "Build"
 
 env:
-  RUST_VERSION: "1.63.0"
+  RUST_VERSION: "stable 6 months ago"
 
 on:
   push:

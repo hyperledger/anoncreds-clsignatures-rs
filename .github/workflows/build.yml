@@ -48,5 +48,10 @@ jobs:
         env:
           RUST_BACKTRACE: full
 
+      - name: Run tests (native backend)
+        run: cargo test --workspace --no-default-features --features serde
+        env:
+          RUST_BACKTRACE: full
+
       - name: Release build
         run: cargo build --release --all-targets --features openssl_vendored

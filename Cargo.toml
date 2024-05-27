@@ -8,7 +8,7 @@ name = "anoncreds-clsignatures"
 readme = "README.md"
 repository = "https://github.com/hyperledger/anoncreds-clsignatures-rs"
 version = "0.3.2"
-rust-version = "1.63"
+rust-version = "1.65"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -20,7 +20,7 @@ openssl_vendored = ["openssl_bn", "openssl/vendored"]
 
 [dependencies]
 amcl = "0.2"
-glass_pumpkin = "1.6"
+glass_pumpkin = "1.7"
 log = "0.4"
 num-bigint = { version = "0.4", features = ["rand"] }
 num-integer = "0.1.45"

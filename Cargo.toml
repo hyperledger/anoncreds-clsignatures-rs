@@ -7,7 +7,7 @@ license = "Apache-2.0"
 name = "anoncreds-clsignatures"
 readme = "README.md"
 repository = "https://github.com/hyperledger/anoncreds-clsignatures-rs"
-version = "0.3.2"
+version = "0.3.3"
 rust-version = "1.65"
 
 [lib]
@@ -38,3 +38,9 @@ rmp-serde = "1"
 [[bench]]
 name = "cl"
 harness = false
+
+# speed up big numbers and prime generation for tests
+[profile.test.package.num-bigint]
+opt-level = 3
+[profile.test.package.glass_pumpkin]
+opt-level = 3
